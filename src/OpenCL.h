@@ -78,6 +78,7 @@ private:
     cl::Buffer m_MBuffer;
     cl::Buffer m_pinnedOutBuffer_pol;
     cl::Buffer m_pinnedOutBuffer_val;
+    cl::Buffer m_pinnedOutBuffer_es;
     bool m_buffers_allocated{false};
 };
 
@@ -148,6 +149,7 @@ public:
     void forward(const std::vector<float>& input,
             std::vector<float>& output_pol,
             std::vector<float>& output_val,
+            std::vector<float>& output_es,
             OpenCLContext & opencl_context,
             const int batch_size = 1);
 

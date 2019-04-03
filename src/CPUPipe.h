@@ -41,7 +41,8 @@ public:
     virtual void initialize(const int channels);
     virtual void forward(const std::vector<float>& input,
                          std::vector<float>& output_pol,
-                         std::vector<float>& output_val);
+                         std::vector<float>& output_val,
+                         std::vector<float>& output_es);
 
     virtual void push_weights(unsigned int filter_size,
                               unsigned int channels,
@@ -76,7 +77,9 @@ private:
 
     std::vector<float> m_conv_pol_w;
     std::vector<float> m_conv_val_w;
+    std::vector<float> m_conv_es_w;
     std::vector<float> m_conv_pol_b;
     std::vector<float> m_conv_val_b;
+    std::vector<float> m_conv_es_b;
 };
 #endif

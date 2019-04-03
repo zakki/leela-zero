@@ -230,6 +230,8 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     // We are version 1 or 2
     if (m_value_head_not_stm) {
         myprintf("v%d...", 2);
+    } else if (m_has_es_head) {
+        myprintf("v%d...", 4);
     } else {
         myprintf("v%d...", 1);
     }
@@ -253,6 +255,12 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     // 1 format id, 1 input layer (4 x weights), 14 ending weights,
     // the rest are residuals, every residual has 8 x weight lines
     auto residual_blocks = linecount - (1 + 4 + 14);
+
+    // v4 (ES head) needs 7 more lines of ending weights
+    if (m_has_es_head) {
+        residual_blocks -= 7;
+    }
+
     if (residual_blocks % 8 != 0) {
         myprintf("\nInconsistent number of weights in the file.\n");
         return {0, 0};
@@ -326,12 +334,32 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
                                    begin(m_ip2_val_w)); break;
                 case 13: std::copy(cbegin(weights), cend(weights),
                                    begin(m_ip2_val_b)); break;
+
+                // ES head
+                case 14: m_fwd_weights->m_conv_es_w = std::move(weights); break;
+                case 15: m_fwd_weights->m_conv_es_b = std::move(weights); break;
+                case 16: std::copy(cbegin(weights), cend(weights),
+                                   begin(m_bn_es_w1)); break;
+                case 17: std::copy(cbegin(weights), cend(weights),
+                                   begin(m_bn_es_w2)); break;
+                case 18: std::copy(cbegin(weights), cend(weights),
+                                   begin(m_ip_es_w)); break;
+                case 19: std::copy(cbegin(weights), cend(weights),
+                                   begin(m_ip_es_b)); break;
+                case 20: 
+                    m_komi = weights[0];
+                    m_winrate_weight = weights[1];
+                    break;
+
             }
         }
         linecount++;
     }
     process_bn_var(m_bn_pol_w2);
     process_bn_var(m_bn_val_w2);
+    if (m_has_es_head) {
+        process_bn_var(m_bn_es_w2);
+    }
 
     return {channels, static_cast<int>(residual_blocks)};
 }
@@ -368,7 +396,7 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
         auto iss = std::stringstream{line};
         // First line is the file format version id
         iss >> format_version;
-        if (iss.fail() || (format_version != 1 && format_version != 2)) {
+        if (iss.fail() || (format_version != 4 && format_version != 1 && format_version != 2)) {
             myprintf("Weights file is the wrong version.\n");
             return {0, 0};
         } else {
@@ -379,6 +407,10 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
                 m_value_head_not_stm = true;
             } else {
                 m_value_head_not_stm = false;
+                // format_version 4 has the additional 'ES' head
+                if (format_version == 4) {
+                    m_has_es_head = true;
+                }
             }
             return load_v1_network(buffer);
         }
@@ -555,6 +587,13 @@ void Network::initialize(int playouts, const std::string & weightsfile) {
     for (auto i = size_t{0}; i < m_bn_pol_w1.size(); i++) {
         m_bn_pol_w1[i] -= m_fwd_weights->m_conv_pol_b[i];
         m_fwd_weights->m_conv_pol_b[i] = 0.0f;
+    }
+
+    if (m_has_es_head) {
+        for (auto i = size_t{0}; i < m_bn_es_w1.size(); i++) {
+            m_bn_es_w1[i] -= m_fwd_weights->m_conv_es_b[i];
+            m_fwd_weights->m_conv_es_b[i] = 0.0f;
+        }
     }
 
 #ifdef USE_OPENCL
@@ -806,16 +845,21 @@ Network::Netresult Network::get_output_internal(
     constexpr auto height = BOARD_SIZE;
 
     const auto input_data = gather_features(state, symmetry);
+    const auto to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
+    // recover blacks_move : see gather_features()
+    auto blacks_move = *to_move_it;
+
     std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
     std::vector<float> value_data(OUTPUTS_VALUE * width * height);
+    std::vector<float> endstate_data(OUTPUTS_POLICY * width * height);
 #ifdef USE_OPENCL_SELFCHECK
     if (selfcheck) {
-        m_forward_cpu->forward(input_data, policy_data, value_data);
+        m_forward_cpu->forward(input_data, policy_data, value_data, endstate_data);
     } else {
-        m_forward->forward(input_data, policy_data, value_data);
+        m_forward->forward(input_data, policy_data, value_data, endstate_data);
     }
 #else
-    m_forward->forward(input_data, policy_data, value_data);
+    m_forward->forward(input_data, policy_data, value_data, endstate_data);
     (void) selfcheck;
 #endif
 
@@ -836,8 +880,36 @@ Network::Netresult Network::get_output_internal(
     const auto winrate_out =
         innerproduct<VALUE_LAYER, 1, false>(winrate_data, m_ip2_val_w, m_ip2_val_b);
 
+    std::vector<float> endstate_out;
+    if (m_has_es_head) {
+        // Get the endstate
+        batchnorm<NUM_INTERSECTIONS>(OUTPUTS_POLICY, endstate_data,
+            m_bn_es_w1.data(), m_bn_es_w2.data());
+        endstate_out =
+            innerproduct<OUTPUTS_POLICY * NUM_INTERSECTIONS, 2*NUM_INTERSECTIONS, false>(
+                endstate_data, m_ip_es_w, m_ip_es_b);
+        for (auto & x : endstate_out) {
+            // sigmoid
+            x = 1.0 / (1.0 + std::exp(-x));
+        }
+    }
+
     // Map TanH output range [-1..1] to [0..1] range
-    const auto winrate = (1.0f + std::tanh(winrate_out[0])) / 2.0f;
+    auto score_bias = blacks_move ? -m_komi : m_komi;
+    auto confidence = 0.0f;
+    if (m_has_es_head) {
+        for (auto i=0; i<NUM_INTERSECTIONS; i++) {
+            score_bias += endstate_out[i];
+            score_bias -= endstate_out[i + NUM_INTERSECTIONS];
+            float v1 = 0.5 - endstate_out[i];
+            float v2 = 0.5 - endstate_out[i + NUM_INTERSECTIONS];
+            confidence += (v1 * v1 + v2 * v2);
+        }
+        confidence *= 2.0f / NUM_INTERSECTIONS;
+    }
+    auto winrate = m_winrate_weight * std::tanh(winrate_out[0]) 
+                       + (1.0f - m_winrate_weight) * std::tanh(score_bias * confidence / 10.0f);
+    winrate = (winrate + 1.0f) / 2.0f;
 
     Netresult result;
 

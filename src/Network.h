@@ -174,6 +174,20 @@ private:
 
     std::array<float, VALUE_LAYER> m_ip2_val_w;
     std::array<float, 1> m_ip2_val_b;
+
+    // Endstate head
+    std::array<float, OUTPUTS_POLICY> m_bn_es_w1;
+    std::array<float, OUTPUTS_POLICY> m_bn_es_w2;
+
+    std::array<float, OUTPUTS_POLICY
+                      * NUM_INTERSECTIONS 
+                      * NUM_INTERSECTIONS * 2> m_ip_es_w;
+    std::array<float, NUM_INTERSECTIONS * 2> m_ip_es_b;
+
     bool m_value_head_not_stm;
+    bool m_has_es_head = false;
+
+    float m_komi = 0.0;
+    float m_winrate_weight = 1.0;
 };
 #endif

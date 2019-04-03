@@ -381,7 +381,8 @@ void batchnorm(const size_t channels,
 
 void CPUPipe::forward(const std::vector<float>& input,
                       std::vector<float>& output_pol,
-                      std::vector<float>& output_val) {
+                      std::vector<float>& output_val,
+                      std::vector<float>& output_es) {
     // Input convolution
     constexpr auto P = WINOGRAD_P;
     // Calculate output channels
@@ -424,6 +425,9 @@ void CPUPipe::forward(const std::vector<float>& input,
     }
     convolve<1>(Network::OUTPUTS_POLICY, conv_out, m_conv_pol_w, m_conv_pol_b, output_pol);
     convolve<1>(Network::OUTPUTS_VALUE, conv_out, m_conv_val_w, m_conv_val_b, output_val);
+    if (m_conv_es_w.size() > 0) {
+        convolve<1>(Network::OUTPUTS_POLICY, conv_out, m_conv_es_w, m_conv_es_b, output_es);
+    }
 }
 
 void CPUPipe::push_weights(unsigned int /*filter_size*/,
@@ -438,5 +442,7 @@ void CPUPipe::push_weights(unsigned int /*filter_size*/,
     m_conv_pol_b.resize(m_conv_pol_w.size() / outputs, 0.0f);
     m_conv_val_w = weights->m_conv_val_w;
     m_conv_val_b.resize(m_conv_val_w.size() / outputs, 0.0f);
+    m_conv_es_w = weights->m_conv_es_w;
+    m_conv_es_b.resize(m_conv_es_w.size() / outputs, 0.0f);
 }
 

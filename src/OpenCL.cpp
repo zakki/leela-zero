@@ -133,13 +133,16 @@ void OpenCL_Network<net_t>::add_weights(size_t layer,
     auto weightSize = size * sizeof(net_t);
 
     auto queue = cl::CommandQueue(getOpenCL().m_context, getOpenCL().m_device);
-    auto buffer = cl::Buffer(
-        m_opencl.m_context,
-        CL_MEM_READ_ONLY,
-        weightSize,
-        nullptr
-    );
-    queue.enqueueWriteBuffer(buffer, CL_TRUE, 0, weightSize, const_cast<net_t*>(weights));
+    cl::Buffer buffer;
+    if (weightSize > 0) {
+        buffer = cl::Buffer(
+            m_opencl.m_context,
+            CL_MEM_READ_ONLY,
+            weightSize,
+            nullptr
+        );
+        queue.enqueueWriteBuffer(buffer, CL_TRUE, 0, weightSize, const_cast<net_t*>(weights));
+    }
     m_layers.back().weights.push_back(std::move(buffer));
 }
 
@@ -147,12 +150,14 @@ template <typename net_t>
 void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
                              std::vector<float>& output_pol,
                              std::vector<float>& output_val,
+                             std::vector<float>& output_es,
                              OpenCLContext & opencl_context,
                              const int batch_size) {
     constexpr auto tiles = WINOGRAD_P;
     constexpr auto one_plane = NUM_INTERSECTIONS * sizeof(net_t);
-    const auto finalSize_pol = m_layers[m_layers.size()-2].outputs * one_plane;
-    const auto finalSize_val = m_layers.back().outputs * one_plane;
+    const auto finalSize_pol = m_layers[m_layers.size()-3].outputs * one_plane;
+    const auto finalSize_val = m_layers[m_layers.size()-2].outputs * one_plane;
+    const auto finalSize_es = m_layers.back().outputs * one_plane;
 
     m_opencl.ensure_context_initialized(opencl_context);
 
@@ -199,6 +204,11 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
             m_opencl.m_context,
             CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, getOpenCL().m_batch_size * finalSize_val);
 
+        if (finalSize_es > 0) {
+            opencl_context.m_pinnedOutBuffer_es = cl::Buffer(
+                m_opencl.m_context,
+                CL_MEM_WRITE_ONLY | CL_MEM_ALLOC_HOST_PTR, getOpenCL().m_batch_size * finalSize_es);
+        }
         opencl_context.m_buffers_allocated = true;
     }
 
@@ -289,6 +299,13 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
 
             cl::Buffer out_buffer;
             if (niter == cend(m_layers)) {
+                if (finalSize_es > 0) {
+                    out_buffer = opencl_context.m_pinnedOutBuffer_es;
+                } else {
+                    // no endstate, don't compute the endstate
+                    continue;
+                }
+            } else if (niter + 1 == cend(m_layers)) {
                 out_buffer = opencl_context.m_pinnedOutBuffer_val;
             } else {
                 out_buffer = opencl_context.m_pinnedOutBuffer_pol;
@@ -311,6 +328,13 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
         opencl_context.m_pinnedOutBuffer_val, CL_FALSE,
         CL_MAP_READ, 0, batch_size * finalSize_val);
 
+    void * pinnedOutBufferHost_es;
+    if (finalSize_es > 0) {
+        pinnedOutBufferHost_es = queue.enqueueMapBuffer(
+            opencl_context.m_pinnedOutBuffer_es, CL_FALSE,
+            CL_MAP_READ, 0, batch_size * finalSize_es);
+    }
+
     {
         // Finish call is usually a busy wait. When using multiple threads
         // use the lock to avoid busy waiting with all threads.
@@ -320,6 +344,7 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
 
     auto polptr = static_cast<net_t*>(pinnedOutBufferHost_pol);
     auto valptr = static_cast<net_t*>(pinnedOutBufferHost_val);
+
     std::copy(polptr, polptr + output_pol.size(), begin(output_pol));
     std::copy(valptr, valptr + output_val.size(), begin(output_val));
 
@@ -328,6 +353,12 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
     queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_val,
             pinnedOutBufferHost_val);
 
+    if (finalSize_es > 0) {
+        auto esptr = static_cast<net_t*>(pinnedOutBufferHost_es);
+        std::copy(esptr, esptr + output_es.size(), begin(output_es));
+        queue.enqueueUnmapMemObject(opencl_context.m_pinnedOutBuffer_es,
+                pinnedOutBufferHost_es);
+    }
 }
 
 template <typename net_t>

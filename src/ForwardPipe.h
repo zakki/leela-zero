@@ -51,6 +51,9 @@ public:
 
         std::vector<float> m_conv_val_w;
         std::vector<float> m_conv_val_b;
+
+        std::vector<float> m_conv_es_w;
+        std::vector<float> m_conv_es_b;
     };
 
     virtual ~ForwardPipe() = default;
@@ -59,7 +62,8 @@ public:
     virtual bool needs_autodetect() { return false; };
     virtual void forward(const std::vector<float>& input,
                          std::vector<float>& output_pol,
-                         std::vector<float>& output_val) = 0;
+                         std::vector<float>& output_val,
+                         std::vector<float>& output_es) = 0;
     virtual void push_weights(unsigned int filter_size,
                               unsigned int channels,
                               unsigned int outputs,
