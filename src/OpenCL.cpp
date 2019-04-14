@@ -328,7 +328,7 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
         opencl_context.m_pinnedOutBuffer_val, CL_FALSE,
         CL_MAP_READ, 0, batch_size * finalSize_val);
 
-    void * pinnedOutBufferHost_es;
+    void * pinnedOutBufferHost_es = nullptr;
     if (finalSize_es > 0) {
         pinnedOutBufferHost_es = queue.enqueueMapBuffer(
             opencl_context.m_pinnedOutBuffer_es, CL_FALSE,
