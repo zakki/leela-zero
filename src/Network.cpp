@@ -803,6 +803,10 @@ Network::Netresult Network::get_output(
             for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
                 result.policy[idx] +=
                     tmpresult.policy[idx] / static_cast<float>(NUM_SYMMETRIES);
+                if (m_has_es_head) {
+                    result.endstate[idx] +=
+                        tmpresult.endstate[idx] / static_cast<float>(NUM_SYMMETRIES);
+                }
             }
         }
     } else {
@@ -1059,6 +1063,15 @@ Network::Netresult Network::get_output_internal(
                 result.policy[sym_idx] *= 0.1;
             }
         }
+        if (m_has_es_head) {
+            const int offset_b = blacks_move ? 0 : NUM_INTERSECTIONS;
+            const int offset_w = NUM_INTERSECTIONS - offset_b;
+            const auto es_b = endstate[idx + offset_b];
+            const auto es_w = endstate[idx + offset_w];
+            result.endstate_sum_b += es_b;
+            result.endstate_sum_w += es_w;
+            result.endstate[sym_idx] = es_b - es_w;
+        }
     }
 
     result.policy_pass = outputs[NUM_INTERSECTIONS];
@@ -1126,6 +1139,33 @@ void Network::show_heatmap(const FastState* const state,
             cum += move.first;
         }
     }
+}
+
+void Network::show_endstate_map(const Netresult& result) {
+    std::vector<std::string> display_map;
+    std::string line;
+
+    myprintf("endstate:\n");
+
+    for (unsigned int y = 0; y < BOARD_SIZE; y++) {
+        for (unsigned int x = 0; x < BOARD_SIZE; x++) {
+            auto endstate = result.endstate[y * BOARD_SIZE + x];
+            int displayed_endstate = endstate * 1000;
+
+            line += boost::str(boost::format("%3d ") % displayed_endstate);
+        }
+
+        display_map.push_back(line);
+        line.clear();
+    }
+
+    for (int i = display_map.size() - 1; i >= 0; --i) {
+        myprintf("%s\n", display_map[i].c_str());
+    }
+
+    myprintf("endstate sum (black): %.1f\n", result.endstate_sum_b);
+    myprintf("endstate sum (white): %.1f\n", result.endstate_sum_w);
+    myprintf("endstate sum (black - white): %.1f\n", result.endstate_sum_b - result.endstate_sum_w);
 }
 
 void Network::fill_input_plane_pair(const FullBoard& board,

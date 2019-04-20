@@ -98,6 +98,7 @@ public:
                    const int iterations = 1600);
     static void show_heatmap(const FastState * const state,
                              const Netresult & netres, const bool topmoves);
+    static void show_endstate_map(const Netresult & netres);
 
     static float get_normalised_komi(const GameState* const state);
     static std::vector<float> gather_features(const GameState* const state,

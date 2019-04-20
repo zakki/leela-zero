@@ -50,6 +50,7 @@ public:
     struct Netresult {
         // 19x19 board positions
         std::array<float, NUM_INTERSECTIONS> policy;
+        std::array<float, NUM_INTERSECTIONS> endstate;
 
         // pass
         float policy_pass;
@@ -57,8 +58,13 @@ public:
         // winrate
         float winrate;
 
-        Netresult() : policy_pass(0.0f), winrate(0.0f) {
+        // endstate_sum
+        float endstate_sum_b, endstate_sum_w;
+
+        Netresult() : policy_pass(0.0f), winrate(0.0f),
+                      endstate_sum_b(0.0f), endstate_sum_w(0.0f) {
             policy.fill(0.0f);
+            endstate.fill(0.0f);
         }
     };
 

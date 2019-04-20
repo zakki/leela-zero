@@ -420,6 +420,7 @@ const std::string GTP::s_commands[] = {
     "kgs-time_settings",
     "kgs-game_over",
     "heatmap",
+    "endstate_map",
     "lz-analyze",
     "lz-genmove_analyze",
     "lz-memory_report",
@@ -996,6 +997,40 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
         if (symmetry != "all") {
             Network::show_heatmap(&game, vec, false);
+        }
+
+        gtp_printf(id, "");
+        return;
+    } else if (command.find("endstate_map") == 0) {
+        std::istringstream cmdstream(command);
+        std::string tmp;
+        std::string symmetry;
+
+        cmdstream >> tmp;   // eat endstate_map
+        cmdstream >> symmetry;
+
+        Network::Netresult vec;
+        if (cmdstream.fail()) {
+            // Default = DIRECT with no symmetric change
+            vec = s_network->get_output(
+                &game, Network::Ensemble::DIRECT,
+                Network::IDENTITY_SYMMETRY, false);
+        } else if (symmetry == "all") {
+            for (auto s = 0; s < Network::NUM_SYMMETRIES; ++s) {
+                vec = s_network->get_output(
+                    &game, Network::Ensemble::DIRECT, s, false);
+                Network::show_endstate_map(vec);
+            }
+        } else if (symmetry == "average" || symmetry == "avg") {
+            vec = s_network->get_output(
+                &game, Network::Ensemble::AVERAGE, -1, false);
+        } else {
+            vec = s_network->get_output(
+                &game, Network::Ensemble::DIRECT, std::stoi(symmetry), false);
+        }
+
+        if (symmetry != "all") {
+            Network::show_endstate_map(vec);
         }
 
         gtp_printf(id, "");
