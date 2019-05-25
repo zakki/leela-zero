@@ -244,11 +244,75 @@ void Training::load_training(std::ifstream& in) {
 
 void Training::dump_training(int winner_color, OutputChunker& outchunk) {
     auto training_str = std::string{};
+
+    auto & lastdata = m_data.at(m_data.size()-1);
+    std::bitset<NUM_INTERSECTIONS> pmine = lastdata.planes[0];
+    std::bitset<NUM_INTERSECTIONS> poppo = lastdata.planes[8];
+    
+    auto expand_empty = [] (auto & mine, const auto & oppo_ref) {
+        bool expand = true;
+        while (expand) {
+            expand = false;
+            for(int i=0; i<NUM_INTERSECTIONS; i++) {
+                int p1 = i - 1;
+                int p2 = i - BOARD_SIZE;    
+                int p3 = i + 1;
+                int p4 = i + BOARD_SIZE;
+
+                if (mine[i]) { continue; }
+                if (oppo_ref[i]) { continue; }
+                if (i % BOARD_SIZE > 0 && mine[p1]) {
+                    mine[i] = true; expand = true;
+                }
+                else if (i / BOARD_SIZE > 0 && mine[p2]) {
+                    mine[i] = true; expand = true;
+                }
+                else if (i % BOARD_SIZE < BOARD_SIZE-1 && mine[p3]) {
+                    mine[i] = true; expand = true;
+                }
+                else if (i / BOARD_SIZE < BOARD_SIZE-1 && mine[p4]) {
+                    mine[i] = true; expand = true;
+                }
+            }
+        }
+    };
+    expand_empty(pmine, lastdata.planes[8]);
+    expand_empty(poppo, lastdata.planes[0]);
+    for (int i=0; i<NUM_INTERSECTIONS; i++) {
+        if( lastdata.planes[0][i]) {
+            Utils::myprintf("O");
+        } else if(lastdata.planes[8][i]) {
+            Utils::myprintf("X");
+        } else {
+            Utils::myprintf(".");
+        }
+        if(i % BOARD_SIZE == BOARD_SIZE-1) {
+            Utils::myprintf("\n");
+        }
+    }
+    Utils::myprintf("\n");
+    Utils::myprintf("\n");
+    Utils::myprintf("\n");
+    for (int i=0; i<NUM_INTERSECTIONS; i++) {
+        if( pmine[i] && poppo[i]) {
+            pmine[i] = false; poppo[i] = false;
+        }
+        if( pmine[i]) {
+            Utils::myprintf("O");
+        } else if(poppo[i]) {
+            Utils::myprintf("X");
+        } else {
+            Utils::myprintf(".");
+        }
+        if(i % BOARD_SIZE == BOARD_SIZE-1) {
+            Utils::myprintf("\n");
+        }
+    }
+    
+
     for (const auto& step : m_data) {
         auto out = std::stringstream{};
-        // First output 16 times an input feature plane
-        for (auto p = size_t{0}; p < 16; p++) {
-            const auto& plane = step.planes[p];
+        auto dump_plane = [&out](auto & plane) {
             // Write it out as a string of hex characters
             for (auto bit = size_t{0}; bit + 3 < plane.size(); bit += 4) {
                 auto hexbyte =  plane[bit]     << 3
@@ -262,7 +326,14 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
             assert(plane.size() % 4 == 1);
             out << plane[plane.size() - 1];
             out << std::dec << std::endl;
+        };
+ 
+        // First output 16 times an input feature plane
+        for (auto p = size_t{0}; p < 16; p++) {
+            const auto& plane = step.planes[p];
+            dump_plane(plane);
         }
+
         // The side to move planes can be compactly encoded into a single
         // bit, 0 = black to move.
         out << (step.to_move == FastBoard::BLACK ? "0" : "1") << std::endl;
@@ -282,6 +353,16 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
             out << "-1";
         }
         out << std::endl;
+
+        // dump final board state too
+        if (step.to_move == lastdata.to_move) {
+            dump_plane(pmine);
+            dump_plane(poppo);
+        } else {
+            dump_plane(poppo);
+            dump_plane(pmine);
+        }
+
         training_str.append(out.str());
     }
     outchunk.append(training_str);
