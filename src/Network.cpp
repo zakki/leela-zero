@@ -838,16 +838,11 @@ Network::Netresult Network::get_output(
     return result;
 }
 
-Network::Netresult Network::get_output_internal(
-    const GameState* const state, const int symmetry, bool selfcheck) {
-    assert(symmetry >= 0 && symmetry < NUM_SYMMETRIES);
+std::tuple<std::vector<float>, float, std::vector<float>> Network::get_output_raw(
+    std::vector<float> input_data, bool selfcheck) {
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
 
-    const auto input_data = gather_features(state, symmetry);
-    const auto to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
-    // recover blacks_move : see gather_features()
-    auto blacks_move = *to_move_it;
 
     std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
     std::vector<float> value_data(OUTPUTS_VALUE * width * height);
@@ -894,21 +889,40 @@ Network::Netresult Network::get_output_internal(
         }
     }
 
-    // Map TanH output range [-1..1] to [0..1] range
+    return std::make_tuple(outputs, winrate_out[0], endstate_out);
+}
+
+Network::Netresult Network::get_output_internal(
+    const GameState* const state, const int symmetry, bool selfcheck) {
+    assert(symmetry >= 0 && symmetry < NUM_SYMMETRIES);
+
+    std::vector<float> outputs;
+    float winrate_out;
+    std::vector<float> endstate;
+
+    // recover blacks_move : see gather_features()
+    const auto input_data = gather_features(state, symmetry);
+    const auto to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
+    auto blacks_move = *to_move_it;
+
+    std::tie(outputs, winrate_out, endstate) = get_output_raw(input_data, selfcheck);
+
     auto score_bias = blacks_move ? -m_komi : m_komi;
     auto confidence = 0.0f;
     if (m_has_es_head) {
         for (auto i=0; i<NUM_INTERSECTIONS; i++) {
-            score_bias += endstate_out[i];
-            score_bias -= endstate_out[i + NUM_INTERSECTIONS];
-            float v1 = 0.5 - endstate_out[i];
-            float v2 = 0.5 - endstate_out[i + NUM_INTERSECTIONS];
+            score_bias += endstate[i];
+            score_bias -= endstate[i + NUM_INTERSECTIONS];
+            float v1 = 0.5 - endstate[i];
+            float v2 = 0.5 - endstate[i + NUM_INTERSECTIONS];
             confidence += (v1 * v1 + v2 * v2);
         }
         confidence *= 2.0f / NUM_INTERSECTIONS;
     }
-    auto winrate = m_winrate_weight * std::tanh(winrate_out[0]) 
-                       + (1.0f - m_winrate_weight) * std::tanh(score_bias * confidence / 10.0f);
+
+    // Map TanH output range [-1..1] to [0..1] range
+    auto winrate = m_winrate_weight * std::tanh(winrate_out)
+                       + (1.0f - m_winrate_weight) * std::tanh(score_bias * confidence / cfg_aux_bias_ratio);
     winrate = (winrate + 1.0f) / 2.0f;
 
     Netresult result;
@@ -1108,4 +1122,34 @@ void Network::nncache_resize(int max_count) {
 
 void Network::nncache_clear() {
     m_nncache.clear();
+}
+
+void Network::recalibrate_aux_bias_ratio(GameState & state) {
+    std::vector<float> outputs;
+    float winrate_out;
+    std::vector<float> endstate;
+
+    if (!m_has_es_head) {
+        return;
+    }
+
+    // recover blacks_move : see gather_features()
+    const auto input_data = gather_features(&state, 0);
+    const auto to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
+    auto blacks_move = *to_move_it;
+
+    std::tie(outputs, winrate_out, endstate) = get_output_raw(input_data);
+
+    auto score_bias = blacks_move ? -m_komi : m_komi;
+    auto confidence = 0.0f;
+    for (auto i=0; i<NUM_INTERSECTIONS; i++) {
+        score_bias += endstate[i];
+        score_bias -= endstate[i + NUM_INTERSECTIONS];
+        float v1 = 0.5 - endstate[i];
+        float v2 = 0.5 - endstate[i + NUM_INTERSECTIONS];
+        confidence += (v1 * v1 + v2 * v2);
+    }
+    confidence *= 2.0f / NUM_INTERSECTIONS;
+
+    cfg_aux_bias_ratio = std::abs(score_bias * confidence * 4.0f);
 }

@@ -455,6 +455,10 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
     return true;
 }
 
+void UCTSearch::passlock(bool lock) {
+    m_passlock = lock;
+}
+
 int UCTSearch::get_best_move(passflag_t passflag) {
     int color = m_rootstate.board.get_to_move();
 
@@ -573,6 +577,19 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                     bestmove = FastBoard::PASS;
                 }
             }
+        }
+    } else if(m_passlock) {
+        UCTNode * nopass = m_root->get_nopass_child(m_rootstate);
+        if (nopass != nullptr) {
+            myprintf("Avoiding pass because of passlock.\n");
+            bestmove = nopass->get_move();
+            if (nopass->first_visit()) {
+                besteval = 1.0f;
+            } else {
+                besteval = nopass->get_raw_eval(color);
+            }
+        } else {
+            myprintf("No alternative to passing.\n");
         }
     }
 

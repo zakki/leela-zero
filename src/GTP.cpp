@@ -99,6 +99,7 @@ std::string cfg_options_str;
 bool cfg_benchmark;
 bool cfg_cpu_only;
 AnalyzeTags cfg_analyze_tags;
+float cfg_aux_bias_ratio;
 
 /* Parses tags for the lz-analyze GTP command and friends */
 AnalyzeTags::AnalyzeTags(std::istringstream& cmdstream, const GameState& game) {
@@ -296,6 +297,8 @@ bool AnalyzeTags::has_move_restrictions() const {
 
 std::unique_ptr<Network> GTP::s_network;
 
+int prev_fixed_handicap = 0;
+
 void GTP::initialize(std::unique_ptr<Network>&& net) {
     s_network = std::move(net);
 
@@ -428,6 +431,10 @@ const std::string GTP::s_options[] = {
     "option name Pondering type check default true",
     ""
 };
+
+void GTP::recalibrate_aux_bias_ratio(GameState & state) {
+    s_network->recalibrate_aux_bias_ratio(state);
+}
 
 std::string GTP::get_life_list(const GameState & game, bool live) {
     std::vector<std::string> stringlist;
@@ -825,6 +832,116 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             gtp_fail_printf(id, "syntax not understood");
         }
         return;
+    } else if (command.find("autotrain") == 0) {
+        int boardsize = game.board.get_boardsize();
+        std::istringstream cmdstream(command);
+        std::string tmp, filename;
+        int train_count;
+
+        cmdstream >> tmp >> filename >> train_count;
+
+        auto chunker = OutputChunker{filename, true};
+
+        std::random_device rd;
+        std::ranlux48 gen(rd());
+
+        for(int i=0; i<train_count; i++) {
+            int prev_neutral_count = 0;
+            int movecount = 0;
+            int winner = 0;
+            int random_move = 0;
+            int consecutive_same_neutrals = 0;
+            search->set_visit_limit(gen() % 10 + 10);
+            myprintf("random move for : %d\n", random_move);
+            do {
+                if(random_move <= movecount) {
+                    auto visit = cfg_max_visits;
+                    auto ratio = std::pow(1.2, (prev_fixed_handicap * 3 - movecount));
+                    if(ratio > 1000.0) ratio = 1000.0;
+                    visit *= ratio;
+
+                    if (visit > cfg_max_visits) {
+                        search->set_visit_limit(visit);
+                    } else if(random_move == movecount) {
+                        search->set_visit_limit(cfg_max_visits);
+                    }
+                    if(random_move == movecount) {
+                        Training::clear_training();
+                    }
+                }
+
+                int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
+
+                game.play_move(move);
+                game.display_state();
+
+                movecount++;
+
+                int neutral_count = game.board.neutral_count();
+                if (neutral_count == prev_neutral_count) {
+                    if (consecutive_same_neutrals >= 4) {
+                        search->passlock(false);
+                    }
+                    consecutive_same_neutrals++;
+                } else {
+                    consecutive_same_neutrals = 0;
+                    search->passlock(true);
+                }
+                prev_neutral_count = neutral_count;
+                myprintf("consecutive_same_neutrals %d neutral_count %d\n", consecutive_same_neutrals, neutral_count);
+
+                if (game.has_resigned()) {
+                    winner = 1 - game.who_resigned();
+                    break;
+                }
+                else if(movecount >= boardsize * boardsize *2) {
+                    float ftmp = game.final_score();
+                    if (ftmp < -0.1) {
+                        winner = 1;
+                    } else if (ftmp > 0.1) {
+                        winner = 0;
+                    } else {
+                        // draw?
+                        winner = -1;
+                    }
+                    break;
+                }
+                else if(game.get_passes() == 2) {
+                    float ftmp = game.final_score();
+                    if (ftmp < -0.1) {
+                        winner = 1;
+                    } else if (ftmp > 0.1) {
+                        winner = 0;
+                    } else {
+                        // draw?
+                        winner = -1;
+                    }
+                    break;
+                }
+            } while (true);
+
+
+            myprintf("winner is : %s\n", winner ? "W" : "B");
+
+            if(winner >= 0) {
+                float score = game.final_score();
+                if (game.has_resigned()) {
+                    score = (winner == 0) ? 10.0f : -10.0f;
+                }
+                Training::dump_training(score, chunker);
+            }
+
+            // re-init new game
+            float old_komi = game.get_komi();
+            Training::clear_training();
+            game.init_game(BOARD_SIZE, old_komi);
+            search = std::make_unique<UCTSearch>(game, *s_network);
+            if(prev_fixed_handicap != 0) {
+                game.set_fixed_handicap(prev_fixed_handicap);
+                recalibrate_aux_bias_ratio(game);
+            }
+        }
+        return;
     } else if (command.find("auto") == 0) {
         do {
             int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
@@ -886,6 +1003,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         if (!cmdstream.fail() && game.set_fixed_handicap(stones)) {
             auto stonestring = game.board.get_stone_list();
             gtp_printf(id, "%s", stonestring.c_str());
+            prev_fixed_handicap = stones;
+            recalibrate_aux_bias_ratio(game);
         } else {
             gtp_fail_printf(id, "Not a valid number of handicap stones");
         }

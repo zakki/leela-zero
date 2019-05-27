@@ -106,6 +106,7 @@ public:
     void nncache_resize(int max_count);
     void nncache_clear();
 
+    void recalibrate_aux_bias_ratio(GameState & state);
 private:
     std::pair<int, int> load_v1_network(std::istream& wtfile);
     std::pair<int, int> load_network_file(const std::string& filename);
@@ -132,6 +133,8 @@ private:
                                std::vector<float>& M, const int C, const int K);
     Netresult get_output_internal(const GameState* const state,
                                   const int symmetry, bool selfcheck = false);
+    std::tuple<std::vector<float>,float,std::vector<float>>
+              get_output_raw(std::vector<float> input_data, bool selfcheck = false);
     static void fill_input_plane_pair(const FullBoard& board,
                                       std::vector<float>::iterator black,
                                       std::vector<float>::iterator white,

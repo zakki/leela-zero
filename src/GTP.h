@@ -124,6 +124,7 @@ extern std::string cfg_options_str;
 extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern AnalyzeTags cfg_analyze_tags;
+extern float cfg_aux_bias_ratio;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 
@@ -155,6 +156,8 @@ private:
     static size_t get_base_memory();
     static size_t add_overhead(size_t s) { return s * 11LL / 10LL; }
     static size_t remove_overhead(size_t s) { return s * 10LL / 11LL; }
+
+    static void recalibrate_aux_bias_ratio(GameState & state);
 };
 
 
