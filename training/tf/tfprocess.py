@@ -160,28 +160,33 @@ class TFProcess:
         self.planes = tf.placeholder(tf.string, name='in_planes')
         self.probs = tf.placeholder(tf.string, name='in_probs')
         self.winner = tf.placeholder(tf.string, name='in_winner')
+        self.endstate = tf.placeholder(tf.string, name='in_endstate')
 
         # Mini-batches come as raw packed strings. Decode
         # into tensors to feed into network.
         planes = tf.decode_raw(self.planes, tf.uint8)
         probs = tf.decode_raw(self.probs, tf.float32)
         winner = tf.decode_raw(self.winner, tf.float32)
+        endstate = tf.decode_raw(self.endstate, tf.uint8)
 
         planes = tf.cast(planes, self.model_dtype)
+        endstate = tf.cast(endstate, self.model_dtype)
 
         planes = tf.reshape(planes, (batch_size, 18, 19*19))
         probs = tf.reshape(probs, (batch_size, 19*19 + 1))
         winner = tf.reshape(winner, (batch_size, 1))
+        endstate = tf.reshape(endstate, (batch_size, 2, 19*19))
 
         if gpus_num is None:
             gpus_num = self.gpus_num
-        self.init_net(planes, probs, winner, gpus_num)
+        self.init_net(planes, probs, winner, endstate, gpus_num)
 
-    def init_net(self, planes, probs, winner, gpus_num):
+    def init_net(self, planes, probs, winner, endstate, gpus_num):
         self.y_ = probs   # (tf.float32, [None, 362])
         self.sx = tf.split(planes, gpus_num)
         self.sy_ = tf.split(probs, gpus_num)
         self.sz_ = tf.split(winner, gpus_num)
+        self.sw_ = tf.split(endstate, gpus_num)
         self.batch_norm_count = 0
         self.reuse_var = None
 
@@ -206,7 +211,7 @@ class TFProcess:
                 with tf.device("/gpu:%d" % i):
                     with tf.name_scope("tower_%d" % i):
                         loss, policy_loss, mse_loss, reg_term, y_conv = self.tower_loss(
-                            self.sx[i], self.sy_[i], self.sz_[i])
+                            self.sx[i], self.sy_[i], self.sz_[i], self.sw_[i])
 
                         # Reset batchnorm key to 0.
                         self.reset_batchnorm_key()
@@ -321,14 +326,8 @@ class TFProcess:
             average_grads.append(grad_and_var)
         return average_grads
 
-    def tower_loss(self, x, y_, z_):
-        y_conv, z_conv = self.construct_net(x)
-
-        # Cast the nn result back to fp32 to avoid loss overflow/underflow
-        if self.model_dtype != tf.float32:
-            y_conv = tf.cast(y_conv, tf.float32)
-            z_conv = tf.cast(z_conv, tf.float32)
-
+    def tower_loss(self, x, y_, z_, w_):
+        y_conv, z_conv, w_conv = self.construct_net(x)
         # Calculate loss on policy head
         cross_entropy = \
             tf.nn.softmax_cross_entropy_with_logits(labels=y_,
@@ -337,7 +336,9 @@ class TFProcess:
 
         # Loss on value head
         mse_loss = \
-            tf.reduce_mean(tf.squared_difference(z_, z_conv))
+            tf.reduce_mean(tf.squared_difference(z_, z_conv)) \
+            + 19*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(w_, (-1, 19*19*2)), logits=w_conv))
+
 
         # Regularizer
         reg_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
@@ -412,7 +413,8 @@ class TFProcess:
         r = self.session.run(ops, feed_dict={self.training: training,
                            self.planes: batch[0],
                            self.probs: batch[1],
-                           self.winner: batch[2]})
+                           self.winner: batch[2],
+                           self.endstate: batch[3]})
         # Google's paper scales mse by 1/4 to a [0,1] range, so we do the same here
         return {'policy': r[0], 'mse': r[1]/4., 'reg': r[2],
                 'accuracy': r[3], 'total': r[0]+r[1]+r[2] }
@@ -482,7 +484,7 @@ class TFProcess:
     def save_leelaz_weights(self, filename):
         with open(filename, "w") as file:
             # Version tag
-            file.write("1")
+            file.write("4")
             for weights in self.weights:
                 # Newline unless last line (single bias)
                 file.write("\n")
@@ -515,6 +517,7 @@ class TFProcess:
                 nparray = work_weights.eval(session=self.session)
                 wt_str = [str(wt) for wt in np.ravel(nparray)]
                 file.write(" ".join(wt_str))
+            file.write("\n0.5 0.8")
 
     def get_batchnorm_key(self):
         result = "bn" + str(self.batch_norm_count)
@@ -639,7 +642,19 @@ class TFProcess:
         self.add_weights(b_fc3)
         h_fc3 = tf.nn.tanh(tf.add(tf.matmul(h_fc2, W_fc3), b_fc3))
 
-        return h_fc1, h_fc3
+        # endstate head
+        conv_st = self.conv_block(flow, filter_size=1,
+                                   input_channels=self.residual_filters,
+                                   output_channels=2,
+                                   name="endstate_head")
+        h_conv_st_flat = tf.reshape(conv_st, [-1, 2 * 19 * 19])
+        W_fc4 = weight_variable("w_fc_4", [2 * 19 * 19, (19 * 19) * 2], self.model_dtype)
+        b_fc4 = bias_variable("b_fc_4", [(19 * 19) * 2], self.model_dtype)
+        self.add_weights(W_fc4)
+        self.add_weights(b_fc4)
+        h_fc4 = tf.add(tf.matmul(h_conv_st_flat, W_fc4), b_fc4)
+
+        return h_fc1, h_fc3, h_fc4
 
     def snap_save(self):
         # Save a snapshot of all the variables in the current graph.

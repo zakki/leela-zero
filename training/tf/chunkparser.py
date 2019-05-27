@@ -32,8 +32,8 @@ import threading
 import time
 import unittest
 
-# 16 planes, 1 side to move, 1 x 362 probs, 1 winner = 19 lines
-DATA_ITEM_LINES = 16 + 1 + 1 + 1
+# 16 planes, 1 side to move, 1 x 362 probs, 1 winner, 1 my endboard, 1 opponent endboard = 21 lines
+DATA_ITEM_LINES = 16 + 1 + 1 + 1 + 1 + 1
 
 def remap_vertex(vertex, symmetry):
     """
@@ -106,6 +106,11 @@ class ChunkParser:
             np.array([remap_vertex(vertex, sym) + p * 361
                 for p in range(16) for vertex in range(361)])
                     for sym in range(8)]
+        self.board_reflection_table = [
+            np.array([remap_vertex(vertex, sym) + p * 361
+                for p in range(2) for vertex in range(361)])
+                    for sym in range(8)]
+
         # Convert both to np.array.
         # This avoids a conversion step when they're actually used.
         self.prob_reflection_table = [
@@ -147,7 +152,7 @@ class ChunkParser:
         # 19*19*16 packed bit planes (722 bytes)
         # uint8 side_to_move (1 byte)
         # uint8 is_winner (1 byte)
-        self.v2_struct = struct.Struct('4s1448s722sBB')
+        self.v2_struct = struct.Struct('4s1448s722sBB91s')
 
         # Struct used to return data from child workers.
         # float32 winner
@@ -217,9 +222,30 @@ class ChunkParser:
             return False, None
         winner = int((winner + 1) / 2)
 
+        endstates = []
+        for endstate in range(19, 21):
+            # first 168 first bits are 42 hex chars, encoded MSB
+            #print(text_item[endstate])
+            hex_string = text_item[endstate][0:90]
+            array = np.unpackbits(np.frombuffer(
+                bytearray.fromhex(hex_string), dtype=np.uint8))
+            # Remaining bit that didn't fit. Encoded LSB so
+            # it needs to be specially handled.
+            last_digit = text_item[endstate][90]
+            if not (last_digit == "0" or last_digit == "1"):
+                return False, None
+            # Apply symmetry and append
+            endstates.append(array)
+            endstates.append(np.array([last_digit], dtype=np.uint8))
+
+        # We flatten to a single array of len 16*19*19, type=np.uint8
+        endstates = np.concatenate(endstates)
+        # and then to a byte string
+        endstates = np.packbits(endstates).tobytes()
+
         version = struct.pack('i', 1)
 
-        return True, self.v2_struct.pack(version, probs, planes, stm, winner)
+        return True, self.v2_struct.pack(version, probs, planes, stm, winner, endstates)
 
     def v2_apply_symmetry(self, symmetry, content):
         """
@@ -228,7 +254,7 @@ class ChunkParser:
         assert symmetry >= 0 and symmetry < 8
 
         # unpack the record.
-        (ver, probs, planes, to_move, winner) = self.v2_struct.unpack(content)
+        (ver, probs, planes, to_move, winner, endstates) = self.v2_struct.unpack(content)
 
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8))
         # We use the full length reflection tables to apply symmetry
@@ -244,8 +270,13 @@ class ChunkParser:
         assert len(probs) == 362
         probs = probs.tobytes()
 
+        endstates = np.unpackbits(np.frombuffer(endstates, dtype=np.uint8))
+        endstates = endstates[self.board_reflection_table[symmetry]]
+        endstates = np.packbits(endstates)
+        endstates = endstates.tobytes()
+
         # repack record.
-        return self.v2_struct.pack(ver, probs, planes, to_move, winner)
+        return self.v2_struct.pack(ver, probs, planes, to_move, winner, endstates)
 
 
     def convert_v2_to_tuple(self, content):
@@ -264,7 +295,7 @@ class ChunkParser:
                 float32*362 probs
                 uint8*6498 planes
         """
-        (ver, probs, planes, to_move, winner) = self.v2_struct.unpack(content)
+        (ver, probs, planes, to_move, winner, endstates) = self.v2_struct.unpack(content)
         # Unpack planes.
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8))
         assert len(planes) == 19*19*16
@@ -279,7 +310,10 @@ class ChunkParser:
         assert winner == 1.0 or winner == -1.0, winner
         winner = struct.pack('f', winner)
 
-        return (planes, probs, winner)
+        endstates = np.unpackbits(np.frombuffer(endstates, dtype=np.uint8))
+        endstates = endstates[0:722]
+
+        return (planes, probs, winner, endstates)
 
     def convert_chunkdata_to_v2(self, chunkdata):
         """
@@ -372,7 +406,8 @@ class ChunkParser:
                 return
             yield ( b''.join([x[0] for x in s]),
                     b''.join([x[1] for x in s]),
-                    b''.join([x[2] for x in s]) )
+                    b''.join([x[2] for x in s]),
+                    b''.join([x[3] for x in s]) )
 
     def parse(self):
         """
