@@ -593,6 +593,8 @@ int UCTSearch::get_best_move(passflag_t passflag) {
         }
     }
 
+
+#if 0
     // if we aren't passing, should we consider resigning?
     if (bestmove != FastBoard::PASS) {
         if (should_resign(passflag, besteval)) {
@@ -601,7 +603,19 @@ int UCTSearch::get_best_move(passflag_t passflag) {
             bestmove = FastBoard::RESIGN;
         }
     }
+#else
+    // enter acceleration mode if we found that eval is bad
+    if (bestmove != FastBoard::PASS) {
+        if (should_resign(passflag, besteval)) {
+            myprintf("Eval (%.2f%%) looks bad. Enter acceleration mode\n",
+                     100.0f * besteval);
+            set_playout_limit(1);
+            set_visit_limit(1);
+            m_acceleration_mode = true;
+        }
+    }
 
+#endif
     return bestmove;
 }
 
@@ -843,7 +857,14 @@ int UCTSearch::think(int color, passflag_t passflag) {
     // Display search info.
     myprintf("\n");
     dump_stats(m_rootstate, *m_root);
-    Training::record(m_network, m_rootstate, *m_root);
+
+    int bestmove = get_best_move(passflag);
+
+    // don't dump if we are on acceleration mode
+    // we need to dump if we played pass
+    if (bestmove == FastBoard::PASS || m_maxvisits > 10) {
+        Training::record(m_network, m_rootstate, *m_root);
+    }
 
     Time elapsed;
     int elapsed_centis = Time::timediff_centis(start, elapsed);
@@ -861,8 +882,6 @@ int UCTSearch::think(int color, passflag_t passflag) {
     );
 #endif
 #endif
-
-    int bestmove = get_best_move(passflag);
 
     // Save the explanation.
     m_think_output =
