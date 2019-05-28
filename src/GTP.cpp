@@ -57,6 +57,7 @@
 using namespace Utils;
 
 // Configuration flags
+bool cfg_acceleration_endgame;
 bool cfg_gtp_mode;
 bool cfg_allow_pondering;
 unsigned int cfg_num_threads;
@@ -318,6 +319,7 @@ void GTP::initialize(std::unique_ptr<Network>&& net) {
 
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
+    cfg_acceleration_endgame = false;
     cfg_allow_pondering = true;
 
     // we will re-calculate this on Leela.cpp

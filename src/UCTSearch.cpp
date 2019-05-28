@@ -594,28 +594,27 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     }
 
 
-#if 0
-    // if we aren't passing, should we consider resigning?
-    if (bestmove != FastBoard::PASS) {
-        if (should_resign(passflag, besteval)) {
-            myprintf("Eval (%.2f%%) looks bad. Resigning.\n",
-                     100.0f * besteval);
-            bestmove = FastBoard::RESIGN;
+    if (cfg_acceleration_endgame) {
+        // enter acceleration mode if we found that eval is bad
+        if (bestmove != FastBoard::PASS) {
+            if (should_resign(passflag, besteval)) {
+                myprintf("Eval (%.2f%%) looks bad. Enter acceleration mode\n",
+                         100.0f * besteval);
+                m_acceleration_mode = true;
+            }
         }
-    }
-#else
-    // enter acceleration mode if we found that eval is bad
-    if (bestmove != FastBoard::PASS) {
-        if (should_resign(passflag, besteval)) {
-            myprintf("Eval (%.2f%%) looks bad. Enter acceleration mode\n",
+
+    } else {
+        // if we aren't passing, should we consider resigning?
+        if (bestmove != FastBoard::PASS) {
+            if (should_resign(passflag, besteval)) {
+                myprintf("Eval (%.2f%%) looks bad. Resigning.\n",
                      100.0f * besteval);
-            set_playout_limit(1);
-            set_visit_limit(1);
-            m_acceleration_mode = true;
+                bestmove = FastBoard::RESIGN;
+            }
         }
     }
 
-#endif
     return bestmove;
 }
 
@@ -664,9 +663,12 @@ bool UCTSearch::is_running() const {
 
 int UCTSearch::est_playouts_left(int elapsed_centis, int time_for_move) const {
     auto playouts = m_playouts.load();
-    const auto playouts_left =
+    auto playouts_left =
         std::max(0, std::min(m_maxplayouts - playouts,
                              m_maxvisits - m_root->get_visits()));
+    if (m_acceleration_mode) {
+        playouts_left = 0;
+    }
 
     // Wait for at least 1 second and 100 playouts
     // so we get a reliable playout_rate.
@@ -756,7 +758,8 @@ bool UCTSearch::have_alternate_moves(int elapsed_centis, int time_for_move) {
 }
 
 bool UCTSearch::stop_thinking(int elapsed_centis, int time_for_move) const {
-    return m_playouts >= m_maxplayouts
+    return (m_playouts != 0 && m_acceleration_mode)
+           || m_playouts >= m_maxplayouts
            || m_root->get_visits() >= m_maxvisits
            || elapsed_centis >= time_for_move;
 }
@@ -862,7 +865,7 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     // don't dump if we are on acceleration mode
     // we need to dump if we played pass
-    if (bestmove == FastBoard::PASS || m_maxvisits > 10) {
+    if (bestmove == FastBoard::PASS || m_acceleration_mode) {
         Training::record(m_network, m_rootstate, *m_root);
     }
 
