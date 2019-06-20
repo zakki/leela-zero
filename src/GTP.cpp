@@ -926,11 +926,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             myprintf("winner is : %s\n", winner ? "W" : "B");
 
             if(winner >= 0) {
-                float score = game.final_score();
-                if (game.has_resigned()) {
-                    score = (winner == 0) ? 10.0f : -10.0f;
-                }
-                Training::dump_training(score, chunker);
+                Training::dump_training(winner, chunker);
             }
 
             // re-init new game
