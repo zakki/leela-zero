@@ -38,6 +38,7 @@
 #include "Utils.h"
 #include "Zobrist.h"
 #include "GTP.h"
+#include "Ladder.h"
 
 using namespace Utils;
 

@@ -75,6 +75,7 @@ public:
     void adjust_time(int color, int time, int stones);
 
     void display_state();
+    void display_ladders();
     bool has_resigned() const;
     int who_resigned() const;
 

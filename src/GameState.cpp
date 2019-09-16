@@ -42,6 +42,7 @@
 #include "FullBoard.h"
 #include "KoState.h"
 #include "UCTSearch.h"
+#include "Ladder.h"
 
 void GameState::init_game(int size, float komi) {
     KoState::init_game(size, komi);
@@ -145,6 +146,10 @@ void GameState::display_state() {
     FastState::display_state();
 
     m_timecontrol.display_times();
+}
+
+void GameState::display_ladders() {
+    Ladder::display_ladders(*this);
 }
 
 int GameState::who_resigned() const {

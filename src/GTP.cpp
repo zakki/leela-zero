@@ -578,6 +578,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         search = std::make_unique<UCTSearch>(game, *s_network);
         assert(UCTNodePointer::get_tree_size() == 0);
         gtp_printf(id, "");
+        { extern size_t s_clear_board_num; s_clear_board_num++; }
         return;
     } else if (command.find("komi") == 0) {
         std::istringstream cmdstream(command);

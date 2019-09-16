@@ -148,6 +148,14 @@ private:
                                       std::vector<float>::iterator black,
                                       std::vector<float>::iterator white,
                                       const int symmetry);
+    static void fill_ladder_planes(const GameState* const state,
+                                 std::vector<float>::iterator captures,
+                                 std::vector<float>::iterator escapes,
+                                 const int symmetry);
+    static void set_ladder_map(const GameState* const state,
+                                 std::vector<int>::iterator ladder_map,
+                                 const int symmetry);
+
     bool probe_cache(const GameState* const state, Network::Netresult& result);
     std::unique_ptr<ForwardPipe>&& init_net(int channels,
                                             std::unique_ptr<ForwardPipe>&& pipe);

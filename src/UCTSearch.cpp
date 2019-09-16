@@ -777,6 +777,9 @@ int UCTSearch::think(int color, passflag_t passflag) {
 
     myprintf("Thinking at most %.1f seconds...\n", time_for_move/100.0f);
 
+    myprintf("start not play ladder.\n");
+    { extern size_t s_root_movenum; s_root_movenum = m_rootstate.get_movenum(); }
+
     // create a sorted list of legal moves (make sure we
     // play something legal and decent even in time trouble)
     m_root->prepare_root_node(m_network, color, m_nodes, m_rootstate);
