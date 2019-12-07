@@ -1173,6 +1173,52 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             gtp_fail_printf(id, "syntax not understood");
         }
         return;
+    } else if (command.find("run_selfplay") == 0) {
+        std::istringstream cmdstream(command);
+        std::string tmp;
+        int num = 0;
+
+        cmdstream >> tmp;  // eat komi
+        cmdstream >> num;
+
+        const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        const auto basename = std::string{ "self" } + std::to_string(now) + std::string{ "_" };
+
+        for (size_t i = 0; i < num; i++) {
+            const auto filename = basename + std::to_string(i);
+            bool black = true;
+            int pass_count = 0;
+            execute(game, "clear_board");
+            execute(game, "auto");
+
+            execute(game, "printsgf " + filename + ".sgf");
+            execute(game, "dump_debug " + filename + ".debug.txt");
+
+            int win = FastBoard::EMPTY;
+
+            if (game.who_resigned() == FastBoard::BLACK) {
+                win = FastBoard::WHITE;
+            } else if (game.who_resigned() == FastBoard::WHITE) {
+                win = FastBoard::BLACK;
+            } else {
+                float ftmp = game.final_score();
+                /* white wins */
+                if (ftmp < -0.1) {
+                    win = FastBoard::WHITE;
+                } else if (ftmp > 0.1) {
+                    win = FastBoard::BLACK;
+                }
+            }
+            if (win == FastBoard::BLACK) {
+                execute(game, "dump_training black " + filename + ".txt");
+            } else if (win == FastBoard::WHITE) {
+                execute(game, "dump_training white " + filename + ".txt");
+            } else {
+                gtp_fail_printf(id, "unknown result");
+            }
+        }
+        gtp_printf(id, "");
+        return;
     } else if (command.find("lz-memory_report") == 0) {
         auto base_memory = get_base_memory();
         auto tree_size = add_overhead(UCTNodePointer::get_tree_size());
