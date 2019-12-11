@@ -52,6 +52,8 @@
 
 using namespace Utils;
 
+extern void init_ray();
+
 static void license_blurb() {
     printf(
         "Leela Zero %s  Copyright (C) 2017-2019  Gian-Carlo Pascutto and contributors\n"
@@ -506,6 +508,8 @@ void init_global_objects() {
     Utils::create_z_table();
 
     initialize_network();
+
+    init_ray();
 }
 
 void benchmark(GameState& game) {

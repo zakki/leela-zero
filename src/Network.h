@@ -85,7 +85,8 @@ public:
                          const bool force_selfcheck = false);
 
     static constexpr auto INPUT_MOVES = 8;
-    static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
+    static constexpr auto RAW_INPUT_CHANNELS = 2 * INPUT_MOVES + 2;
+    static constexpr auto INPUT_CHANNELS = 2 * INPUT_MOVES + 2 + 38;
     static constexpr auto OUTPUTS_POLICY = 2;
     static constexpr auto OUTPUTS_VALUE = 1;
     static constexpr auto VALUE_LAYER = 256;

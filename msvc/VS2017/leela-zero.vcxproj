@@ -35,6 +35,12 @@
     <ClInclude Include="..\..\src\OpenCL.h" />
     <ClInclude Include="..\..\src\OpenCLScheduler.h" />
     <ClInclude Include="..\..\src\Random.h" />
+    <ClInclude Include="..\..\src\ray\GoBoard.h" />
+    <ClInclude Include="..\..\src\ray\Ladder.h" />
+    <ClInclude Include="..\..\src\ray\Message.h" />
+    <ClInclude Include="..\..\src\ray\SearchBoard.h" />
+    <ClInclude Include="..\..\src\ray\Utility.h" />
+    <ClInclude Include="..\..\src\ray\ZobristHash.h" />
     <ClInclude Include="..\..\src\SGFParser.h" />
     <ClInclude Include="..\..\src\SGFTree.h" />
     <ClInclude Include="..\..\src\SMP.h" />
@@ -64,6 +70,13 @@
     <ClCompile Include="..\..\src\OpenCL.cpp" />
     <ClCompile Include="..\..\src\OpenCLScheduler.cpp" />
     <ClCompile Include="..\..\src\Random.cpp" />
+    <ClCompile Include="..\..\src\ray\GoBoard.cpp" />
+    <ClCompile Include="..\..\src\ray\Ladder.cpp" />
+    <ClCompile Include="..\..\src\ray\LzRay.cpp" />
+    <ClCompile Include="..\..\src\ray\Message.cpp" />
+    <ClCompile Include="..\..\src\ray\SearchBoard.cpp" />
+    <ClCompile Include="..\..\src\ray\Utility.cpp" />
+    <ClCompile Include="..\..\src\ray\ZobristHash.cpp" />
     <ClCompile Include="..\..\src\SGFParser.cpp" />
     <ClCompile Include="..\..\src\SGFTree.cpp" />
     <ClCompile Include="..\..\src\SMP.cpp" />
@@ -165,6 +178,8 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>src/ray</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -197,6 +212,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>src/ray</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

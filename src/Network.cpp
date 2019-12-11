@@ -88,6 +88,8 @@ using ConstEigenMatrixMap =
     Eigen::Map<const Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic>>;
 #endif
 
+extern void collect_features(std::vector<float>& planes, bool color);
+
 // Symmetry helper
 static std::array<std::array<int, NUM_INTERSECTIONS>,
                   Network::NUM_SYMMETRIES> symmetry_nn_idx_table;
@@ -937,7 +939,7 @@ std::vector<float> Network::gather_features(const GameState* const state,
                           begin(input_data) + INPUT_MOVES * NUM_INTERSECTIONS :
                           begin(input_data);
     const auto to_move_it = blacks_move ?
-        begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS :
+        begin(input_data) + (2 * INPUT_MOVES) * NUM_INTERSECTIONS :
         begin(input_data) + (2 * INPUT_MOVES + 1) * NUM_INTERSECTIONS;
 
     const auto moves = std::min<size_t>(state->get_movenum() + 1, INPUT_MOVES);
@@ -951,6 +953,8 @@ std::vector<float> Network::gather_features(const GameState* const state,
     }
 
     std::fill(to_move_it, to_move_it + NUM_INTERSECTIONS, float(true));
+
+    collect_features(input_data, blacks_move);
 
     return input_data;
 }

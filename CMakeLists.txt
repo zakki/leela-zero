@@ -102,7 +102,7 @@ if(APPLE)
 endif()
 
 set(leelaz_MAIN "${SrcPath}/Leela.cpp")
-file(GLOB leelaz_SRC "${SrcPath}/*.cpp")
+file(GLOB leelaz_SRC "${SrcPath}/*.cpp" "${SrcPath}/ray/*.cpp")
 list(REMOVE_ITEM leelaz_SRC ${leelaz_MAIN})
 
 # Reuse for leelaz and gtest

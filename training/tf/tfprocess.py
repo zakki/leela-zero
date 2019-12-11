@@ -169,7 +169,7 @@ class TFProcess:
 
         planes = tf.cast(planes, self.model_dtype)
 
-        planes = tf.reshape(planes, (batch_size, 18, 19*19))
+        planes = tf.reshape(planes, (batch_size, 56, 19*19))
         probs = tf.reshape(probs, (batch_size, 19*19 + 1))
         winner = tf.reshape(winner, (batch_size, 1))
 
@@ -188,7 +188,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.05, momentum=0.9, use_nesterov=True)
+            learning_rate=0.0003, momentum=0.9, use_nesterov=True)
 
         opt = LossScalingOptimizer(opt, scale=self.loss_scale)
 
@@ -362,6 +362,7 @@ class TFProcess:
         for e, weights in enumerate(self.weights):
             if isinstance(weights, str):
                 weights = tf.get_default_graph().get_tensor_by_name(weights)
+            print(weights.name)
             if weights.name.endswith('/batch_normalization/beta:0'):
                 # Batch norm beta is written as bias before the batch
                 # normalization in the weight file for backwards
@@ -596,12 +597,12 @@ class TFProcess:
 
     def construct_net(self, planes):
         # NCHW format
-        # batch, 18 channels, 19 x 19
-        x_planes = tf.reshape(planes, [-1, 18, 19, 19])
+        # batch, 56 channels, 19 x 19
+        x_planes = tf.reshape(planes, [-1, 56, 19, 19])
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
-                               input_channels=18,
+                               input_channels=56,
                                output_channels=self.residual_filters,
                                name="first_conv")
         # Residual tower
@@ -710,7 +711,7 @@ class TFProcessTest(unittest.TestCase):
         tfprocess = TFProcess(6, 128)
         tfprocess.init(batch_size=1)
         # use known data to test replace_weights() works.
-        data = gen_block(3, 18, tfprocess.residual_filters) # input conv
+        data = gen_block(3, 56, tfprocess.residual_filters) # input conv
         for _ in range(tfprocess.residual_blocks):
             data.extend(gen_block(3,
                 tfprocess.residual_filters, tfprocess.residual_filters))

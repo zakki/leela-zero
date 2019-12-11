@@ -181,7 +181,7 @@ if __name__ == "__main__":
     print("Output will have {} blocks and {} channels.".format(
         blocks+new_blocks, channels+new_channels))
 
-    input_planes = 18
+    input_planes = 56
 
     #Input convolution, bias, batch norm means, batch norm variances
     w_input = weights[:4]
@@ -221,6 +221,7 @@ if __name__ == "__main__":
 
     if args.add_inputs > 0:
         w_in_new = np.array(w_input[0]).reshape(channels, input_planes, 3, 3)
+        #w_in_new = np.delete(w_in_new, slice(44, 96), axis=1)
         noise = np.random.normal(0, noise_std, [channels, args.add_inputs, 3, 3])
         w_in_new = np.append(w_in_new, noise, axis=1)
 

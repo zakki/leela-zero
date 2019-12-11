@@ -39,7 +39,7 @@ BATCH_SIZE = 512
 # Number of examples in a GPU batch. Higher values are more efficient.
 # The maximum depends on the amount of RAM in your GPU and the network size.
 # Must be smaller than BATCH_SIZE.
-RAM_BATCH_SIZE = 128
+RAM_BATCH_SIZE = 64
 
 # Use a random sample input data read. This helps improve the spread of
 # games in the shuffle buffer.
@@ -140,10 +140,13 @@ def main():
         return
 
     training = get_chunks(train_data_prefix)
+    #print(training)
     if not args.test:
         # Generate test by taking 10% of the training chunks.
+        random.seed(2301343010299460478)
         random.shuffle(training)
-        training, test = split_chunks(training, 0.1)
+        random.seed()
+        training, test = split_chunks(training, 0.05)
     else:
         test = get_chunks(args.test)
 
