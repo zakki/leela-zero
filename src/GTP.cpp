@@ -647,6 +647,12 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                 return;
             }
         }
+#if 1
+	if (who == FastBoard::BLACK)
+	  game.set_komi(7.5f);
+	else
+	  game.set_komi(5.5f);
+#endif
 
         if (analysis_output) {
             // Start of multi-line response
@@ -660,6 +666,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             // Outputs winrate and pvs for lz-genmove_analyze
             int move = search->think(who);
             game.play_move(move);
+	    game.display_state();
 
             std::string vertex = game.move_to_text(move);
             if (!analysis_output) {
@@ -814,6 +821,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
             gtp_printf(id, "");
 
+#if 0
             if (cfg_allow_pondering) {
                 // KGS sends this after our move
                 // now start pondering
@@ -821,6 +829,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                     search->ponder();
                 }
             }
+#endif
         } else {
             gtp_fail_printf(id, "syntax not understood");
         }

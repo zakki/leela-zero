@@ -264,9 +264,12 @@ int TimeControl::max_time_for_move(int boardsize,
 
     // always keep a cfg_lagbugger_cs centisecond margin
     // for network hiccups or GUI lag
-    auto base_time = std::max(time_remaining - cfg_lagbuffer_cs, 0) /
+    auto base_time = std::max(time_remaining - cfg_lagbuffer_cs - moves_remaining * 100, 0) /
                      std::max(moves_remaining, 1);
     auto inc_time = std::max(extra_time_per_move - cfg_lagbuffer_cs, 0);
+
+    myprintf("remaining %.1f %d, base %.1f inc %.1f\n",
+	     time_remaining/100.0f, moves_remaining, base_time/100.0f, inc_time/100.0f);
 
     return base_time + inc_time;
 }
@@ -303,6 +306,7 @@ size_t TimeControl::opening_moves(int boardsize) const {
 }
 
 int TimeControl::get_moves_expected(int boardsize, size_t movenum) const {
+#if 0
     auto board_div = 5;
     if (cfg_timemanage != TimeManagement::OFF) {
         // We will take early exits with time management on, so
@@ -321,6 +325,10 @@ int TimeControl::get_moves_expected(int boardsize, size_t movenum) const {
     } else {
         return base_remaining;
     }
+#else
+    auto base_remaining = boardsize * boardsize / 2 - (int) movenum / 2;
+    return std::max(20, base_remaining);
+#endif
 }
 
 // Returns true if we are in a time control where we

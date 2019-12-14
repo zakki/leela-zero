@@ -416,7 +416,7 @@ bool UCTSearch::should_resign(passflag_t passflag, float besteval) {
                                    * m_rootstate.board.get_boardsize();
     const auto move_threshold = num_intersections / 4;
     const auto movenum = m_rootstate.get_movenum();
-    if (movenum <= move_threshold) {
+    if (movenum <= move_threshold || movenum >= 250) {
         // too early in game to resign
         return false;
     }
@@ -523,6 +523,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
             // Do we lose by passing?
             if (relative_score < 0.0f) {
                 myprintf("Passing loses :-(\n");
+#if 0
                 // Find a valid non-pass move.
                 UCTNode * nopass = m_root->get_nopass_child(m_rootstate);
                 if (nopass != nullptr) {
@@ -536,6 +537,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 } else {
                     myprintf("No alternative to passing.\n");
                 }
+#endif
             } else if (relative_score > 0.0f) {
                 myprintf("Passing wins :-)\n");
             } else {
@@ -561,6 +563,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
 
             if (!m_rootstate.is_move_legal(color, FastBoard::PASS)) {
                 myprintf("Passing is forbidden, I'll play on.\n");
+#if 0
             // do we lose by passing?
             } else if (relative_score < 0.0f) {
                 myprintf("Passing loses, I'll play on.\n");
@@ -572,6 +575,18 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 if (besteval < 0.5f) {
                     bestmove = FastBoard::PASS;
                 }
+#else
+            } else {
+	      if (relative_score < 0.0f) {
+                myprintf("Passing loses, I'll play on.\n");
+	      } else if (relative_score > 0.0f) {
+                myprintf("Passing wins, I'll pass out.\n");
+	      }
+	      if (m_rootstate.get_movenum() > 200) {
+                myprintf("Passing");
+		bestmove = FastBoard::PASS;
+	      }
+#endif
             }
         }
     }
