@@ -815,6 +815,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
             gtp_printf(id, "");
 
+#if 0
             if (cfg_allow_pondering) {
                 // KGS sends this after our move
                 // now start pondering
@@ -822,6 +823,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                     search->ponder();
                 }
             }
+#endif
         } else {
             gtp_fail_printf(id, "syntax not understood");
         }
