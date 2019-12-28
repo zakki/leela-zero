@@ -188,7 +188,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.0003, momentum=0.9, use_nesterov=True)
+            learning_rate=0.003 / self.macrobatch, momentum=0.9, use_nesterov=True)
 
         opt = LossScalingOptimizer(opt, scale=self.loss_scale)
 
@@ -346,7 +346,7 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = 1.0 * policy_loss + 1.0 * mse_loss + reg_term
+        loss = 1.0 * policy_loss + 0.1 * mse_loss + reg_term
 
         return loss, policy_loss, mse_loss, reg_term, y_conv
 
