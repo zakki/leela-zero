@@ -925,9 +925,10 @@ void Network::fill_input_plane_pair(const FullBoard& board,
 }
 
 std::vector<float> Network::gather_features(const GameState* const state,
-                                            const int symmetry) {
+                                            const int symmetry,
+                                            const bool use_handcrafted_features) {
     assert(symmetry >= 0 && symmetry < NUM_SYMMETRIES);
-    auto input_data = std::vector<float>(INPUT_CHANNELS * NUM_INTERSECTIONS);
+    auto input_data = std::vector<float>((use_handcrafted_features ? INPUT_CHANNELS : RAW_INPUT_CHANNELS) * NUM_INTERSECTIONS);
 
     const auto to_move = state->get_to_move();
     const auto blacks_move = to_move == FastBoard::BLACK;
@@ -954,7 +955,9 @@ std::vector<float> Network::gather_features(const GameState* const state,
 
     std::fill(to_move_it, to_move_it + NUM_INTERSECTIONS, float(true));
 
-    collect_features(input_data, blacks_move);
+    if (use_handcrafted_features) {
+        collect_features(input_data, blacks_move);
+    }
 
     return input_data;
 }
