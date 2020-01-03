@@ -39,6 +39,7 @@
 #include <memory>
 #include <type_traits>
 #include <algorithm>
+#include <set>
 
 #include "FastBoard.h"
 #include "FastState.h"
@@ -231,6 +232,7 @@ float UCTSearch::get_min_psa_ratio() const {
 SearchResult UCTSearch::play_simulation(GameState & currstate,
                                         UCTNode* const node) {
     const auto color = currstate.get_to_move();
+    const auto movenum = currstate.get_movenum();
     auto result = SearchResult{};
 
     node->virtual_loss();
@@ -264,7 +266,23 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     }
 
     if (result.valid()) {
-        node->update(result.eval());
+        const auto eval = result.eval();
+        node->update(eval);
+
+        if (node->has_children()) {
+            const auto& history = currstate.get_game_history();
+            const auto endmove = currstate.get_movenum();
+            std::set<int> moves;
+            for (auto i = movenum; i < history.size(); i++) {
+                if (history[i]->get_to_move() != color) {
+                    const auto move = history[i]->get_last_move();
+                    if (moves.find(move) == moves.end()) {
+                        node->update_rave(move, eval);
+                        moves.insert(move);
+                    }
+                }
+            }
+        }
     }
     node->virtual_loss_undo();
 
@@ -294,18 +312,20 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
     for (const auto& node : parent.get_children()) {
         // Always display at least two moves. In the case there is
         // only one move searched the user could get an idea why.
-        if (++movecount > 2 && !node->get_visits()) break;
+        if (++movecount > 2 && !node->get_visits() && !node->get_rave_visits()) break;
 
         auto move = state.move_to_text(node->get_move());
         auto tmpstate = FastState{state};
         tmpstate.play_move(node->get_move());
         auto pv = move + " " + get_pv(tmpstate, *node);
 
-        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (RAVE: %5.2f%% %7d) (N: %5.2f%%) PV: %s\n",
             move.c_str(),
             node->get_visits(),
             node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
             std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
+            node->get_rave_visits() ? node->get_rave_eval(color) * 100.0f : 0.0f,
+            node->get_rave_visits(),
             node->get_policy() * 100.0f,
             pv.c_str());
     }

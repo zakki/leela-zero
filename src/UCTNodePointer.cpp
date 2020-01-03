@@ -162,3 +162,16 @@ int UCTNodePointer::get_move() const {
     if (is_inflated(v)) return read_ptr(v)->get_move();
     return read_vertex(v);
 }
+
+int UCTNodePointer::get_rave_visits() const {
+    auto v = m_data.load();
+    if (is_inflated(v)) return read_ptr(v)->get_rave_visits();
+    return 0;
+}
+
+float UCTNodePointer::get_rave_eval(int tomove) const {
+    // this can only be called if it is an inflated pointer
+    auto v = m_data.load();
+    assert(is_inflated(v));
+    return read_ptr(v)->get_rave_eval(tomove);
+}

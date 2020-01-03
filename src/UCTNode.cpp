@@ -215,6 +215,21 @@ void UCTNode::update(float eval) {
     atomic_add(m_squared_eval_diff, delta);
 }
 
+void UCTNode::update_rave(int move, float eval) {
+    wait_expanded();
+
+    for (const auto& child : m_children) {
+        if (child.valid()) {
+            if (child.get_move() == move) {
+                child.inflate();
+                child->m_rave_visits++;
+                atomic_add(child->m_rave_blackevals, double(eval));
+                break;
+            }
+        }
+    }
+}
+
 bool UCTNode::has_children() const {
     return m_min_psa_ratio_children <= 1.0f;
 }
@@ -293,6 +308,24 @@ double UCTNode::get_blackevals() const {
     return m_blackevals;
 }
 
+double UCTNode::get_rave_blackevals() const {
+    return m_rave_blackevals;
+}
+
+int UCTNode::get_rave_visits() const {
+    return m_rave_visits;
+}
+
+float UCTNode::get_rave_eval(int tomove) const {
+    auto visits = get_rave_visits();
+    auto blackeval = get_rave_blackevals();
+    auto eval = static_cast<float>(blackeval / double(visits));
+    if (tomove == FastBoard::WHITE) {
+        eval = 1.0f - eval;
+    }
+    return eval;
+}
+
 void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
@@ -316,29 +349,65 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
             std::log(cfg_logpuct * double(parentvisits) + cfg_logconst));
     const auto fpu_reduction = (is_root ? cfg_fpu_root_reduction : cfg_fpu_reduction) * std::sqrt(total_visited_policy);
     // Estimated eval for unknown nodes = parent (not NN) eval - reduction
-    const auto fpu_eval = get_raw_eval(color) - fpu_reduction;
+    const auto fpu_eval = (m_visits > 0 ? get_raw_eval(color) : 0.0) - fpu_reduction;
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
+
+    const auto dump = is_root && (m_visits % 500) == 0;
 
     for (auto& child : m_children) {
         if (!child.active()) {
             continue;
         }
 
+        const auto visits = child.get_visits();
         auto winrate = fpu_eval;
         if (child.is_inflated() && child->m_expand_state.load() == ExpandState::EXPANDING) {
             // Someone else is expanding this node, never select it
             // if we can avoid so, because we'd block on it.
             winrate = -1.0f - fpu_reduction;
-        } else if (child.get_visits() > 0) {
+        } else if (visits > 0) {
             winrate = child.get_eval(color);
         }
+
+        // RAVE
+        const auto RAVE_D = 1.0;
+        const auto rave_visits = child.get_rave_visits();
+        auto rave_winrate = fpu_eval;
+        auto beta = 0.0;
+        if (rave_visits > 0 && visits < 10) {
+          rave_winrate = child.get_rave_eval(color);
+          if (visits == 0) {
+            beta = 1;
+          } else {
+            beta = rave_visits / (0.001 + rave_visits + visits + rave_visits * visits / RAVE_D);
+          }
+        }
+
         const auto psa = child.get_policy();
         const auto denom = 1.0 + child.get_visits();
         const auto puct = cfg_puct * psa * (numerator / denom);
-        const auto value = winrate + puct;
+        auto value = (1 - beta) * winrate + beta * rave_winrate + puct;
         assert(value > std::numeric_limits<double>::lowest());
+        if (isnan(rave_winrate) || isnan(beta) || isnan(value)) {
+          myprintf("################### BAD RAVE STATE %f %d %d UCT: %f %f %f %f -> %f %f\n",
+            rave_winrate, rave_visits, visits,
+            winrate, fpu_eval, fpu_reduction, puct,
+            rave_winrate, beta);
+          beta = 0;
+          rave_winrate = fpu_eval;
+          value = winrate + puct;
+        }
+        if (dump && (visits > 0 || rave_visits > 0)) {
+          myprintf("RAVE STATE %d %5.2f% VISITS: %f %d %d UCT: %f %f %f %f -> %f %f -> %f\n",
+            child.get_move(), child.get_policy() * 100,
+            rave_winrate, rave_visits, visits,
+            winrate, fpu_eval, fpu_reduction, puct,
+            rave_winrate, beta,
+            value);
+
+        }
 
         if (value > best_value) {
             best_value = value;
