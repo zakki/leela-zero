@@ -150,6 +150,10 @@ void Training::clear_training() {
     Training::m_data.clear();
 }
 
+void Training::pop_training() {
+    Training::m_data.pop_back();
+}
+
 TimeStep::NNPlanes Training::get_planes(const GameState* const state) {
     const auto input_data = Network::gather_features(state, 0, false);
 

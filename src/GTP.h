@@ -85,6 +85,7 @@ extern unsigned int cfg_num_threads;
 extern unsigned int cfg_batch_size;
 extern int cfg_max_playouts;
 extern int cfg_max_visits;
+extern int cfg_max_partial_visits;
 extern size_t cfg_max_memory;
 extern size_t cfg_max_tree_size;
 extern int cfg_max_cache_ratio_percent;

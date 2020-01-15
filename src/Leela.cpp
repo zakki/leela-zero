@@ -145,6 +145,8 @@ static void parse_commandline(int argc, char *argv[]) {
                        "Requires --noponder.")
         ("visits,v", po::value<int>(),
                      "Weaken engine by limiting the number of visits.")
+        ("partialvisits", po::value<int>(),
+                     "Weaken engine by limiting the number of visits.")
         ("lagbuffer,b", po::value<int>()->default_value(cfg_lagbuffer_cs),
                         "Safety margin for time usage in centiseconds.")
         ("resignpct,r", po::value<int>()->default_value(cfg_resignpct),
@@ -407,6 +409,17 @@ static void parse_commandline(int argc, char *argv[]) {
         // 0 may be specified to mean "no limit"
         if (cfg_max_visits == 0) {
             cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
+        }
+
+        cfg_max_partial_visits = cfg_max_visits;
+    }
+
+    if (vm.count("partialvisits")) {
+        cfg_max_partial_visits = vm["partialvisits"].as<int>();
+
+        // 0 may be specified to mean "no limit"
+        if (cfg_max_partial_visits == 0) {
+            cfg_max_partial_visits = UCTSearch::UNLIMITED_PLAYOUTS;
         }
     }
 

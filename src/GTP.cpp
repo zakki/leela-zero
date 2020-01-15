@@ -63,6 +63,7 @@ unsigned int cfg_num_threads;
 unsigned int cfg_batch_size;
 int cfg_max_playouts;
 int cfg_max_visits;
+int cfg_max_partial_visits;
 size_t cfg_max_memory;
 size_t cfg_max_tree_size;
 int cfg_max_cache_ratio_percent;
@@ -325,6 +326,7 @@ void GTP::setup_default_parameters() {
     cfg_max_memory = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_playouts = UCTSearch::UNLIMITED_PLAYOUTS;
     cfg_max_visits = UCTSearch::UNLIMITED_PLAYOUTS;
+    cfg_max_partial_visits = UCTSearch::UNLIMITED_PLAYOUTS;
     // This will be overwriiten in initialize() after network size is known.
     cfg_max_tree_size = UCTSearch::DEFAULT_MAX_MEMORY;
     cfg_max_cache_ratio_percent = 10;
@@ -1184,12 +1186,34 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         const auto now = std::chrono::high_resolution_clock::now().time_since_epoch().count();
         const auto basename = std::string{ "self" } + std::to_string(now) + std::string{ "_" };
 
+        std::random_device rnd;
+        std::mt19937_64 mt(rnd());
+        auto distribution = std::uniform_real_distribution<double>{ 0.0, 1.0 };
+
         for (size_t i = 0; i < num; i++) {
             const auto filename = basename + std::to_string(i);
             bool black = true;
             int pass_count = 0;
             execute(game, "clear_board");
-            execute(game, "auto");
+
+            size_t count = 0;
+            do {
+                int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
+                auto small = false;
+                if (count > 0 && cfg_max_partial_visits < cfg_max_visits) {
+                  small = distribution(mt) > 0.25;
+                  if (small)
+                    search->set_visit_limit(cfg_max_partial_visits);
+                  else
+                    search->set_visit_limit(cfg_max_visits);
+                }
+                game.play_move(move);
+                game.display_state();
+                if (small) {
+                    Training::pop_training();
+                }
+                count++;
+            } while (game.get_passes() < 2 && !game.has_resigned());
 
             execute(game, "printsgf " + filename + ".sgf");
             execute(game, "dump_debug " + filename + ".debug.txt");

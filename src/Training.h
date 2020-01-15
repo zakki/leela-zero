@@ -79,6 +79,7 @@ private:
 class Training {
 public:
     static void clear_training();
+    static void pop_training();
     static void dump_training(int winner_color,
                               const std::string& out_filename);
     static void dump_debug(const std::string& out_filename);
