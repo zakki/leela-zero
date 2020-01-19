@@ -91,15 +91,18 @@ enum class rating_ladder_state_t {
 };
 
 struct rating_context_t {
+  static const size_t num_move_cache = 16;
   game_info_t *game;
   search_game_info_t *search_game;
-  position_t string_captured_pos[MAX_STRING * 2];
-  rating_ladder_state_t string_captured[MAX_STRING * 2];
+  position_t string_captured_pos[MAX_STRING * num_move_cache];
+  rating_ladder_state_t string_captured[MAX_STRING * num_move_cache];
 
   explicit rating_context_t(game_info_t *src);
   ~rating_context_t();
 
   void clear();
+  bool is_alive(int id) const;
+  bool is_dead(int id) const;
 };
 
 ////////////

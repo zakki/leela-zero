@@ -753,26 +753,36 @@ GetLadderState( rating_context_t& ctx, int id, position_t lib, int color )
 
   const game_info_t *game = ctx.game;
   const string_t *string = game->string;
-  int ladder_no = 0;
-  if (ctx.string_captured_pos[id * 2 + 0] == lib) {
-    ladder_no = 0;
-  } else if (ctx.string_captured_pos[id * 2 + 1] == lib) {
-    ladder_no = 1;
-  } else if (ctx.string_captured_pos[id * 2 + 0] == PASS) {
-    ladder_no = 0;
-  } else if (ctx.string_captured_pos[id * 2 + 1] == PASS) {
-    ladder_no = 1;
-  } else {
-    cerr << "BROKEN LADDER CACHE LIB:" << FormatMove(lib) << " STRING:" << FormatMove(string[id].origin)
-       << " LIB1:" << FormatMove(ctx.string_captured_pos[id * 2 + 0])
-       << " LIB2:" << FormatMove(ctx.string_captured_pos[id * 2 + 1])
-         << endl;
+  int ladder_no = -1;
+  for (int i = 0; i < rating_context_t::num_move_cache; i++) {
+    if (ctx.string_captured_pos[id * rating_context_t::num_move_cache + i] == lib) {
+      ladder_no = i;
+      break;
+    }
+  }
+  if (ladder_no < 0) {
+    for (int i = 0; i < rating_context_t::num_move_cache; i++) {
+      if (ctx.string_captured_pos[id * rating_context_t::num_move_cache + i] == PASS) {
+        ladder_no = i;
+        break;
+      }
+    }
+  }
+  if (ladder_no < 0) {
+    cerr << "BROKEN LADDER CACHE LIB:" << FormatMove(lib) << " STRING:" << FormatMove(string[id].origin);
+
+    for (int i = 0; i < rating_context_t::num_move_cache; i++) {
+      auto n = id * rating_context_t::num_move_cache + i;
+      cerr << " LIB" << i << ":" << FormatMove(ctx.string_captured_pos[n]);
+    }
+    cerr << endl;
     PrintBoard(game);
     return rating_ladder_state_t::ILLEGAL;
   }
 
-  if (ctx.string_captured[id * 2 + ladder_no] != rating_ladder_state_t::UNCHECKED)
-    return ctx.string_captured[id * 2 + ladder_no];
+  const auto n = id * rating_context_t::num_move_cache + ladder_no;
+  if (ctx.string_captured[n] != rating_ladder_state_t::UNCHECKED)
+    return ctx.string_captured[n];
 
   /*
   std::atomic_fetch_add(&num_hit, 1);
@@ -784,18 +794,18 @@ GetLadderState( rating_context_t& ctx, int id, position_t lib, int color )
     PutStoneForSearch(ctx.search_game, lib, color);
     int max_size = string[id].size;
     if (!IsLadderCaptured(0, ctx.search_game, string[id].origin, FLIP_COLOR(color), max_size)) {
-      ctx.string_captured[id * 2 + ladder_no] = rating_ladder_state_t::DEAD;
-      ctx.string_captured_pos[id * 2 + ladder_no] = lib;
+      ctx.string_captured[n] = rating_ladder_state_t::DEAD;
+      ctx.string_captured_pos[n] = lib;
     } else {
-      ctx.string_captured[id * 2 + ladder_no] = rating_ladder_state_t::ALIVE;
-      ctx.string_captured_pos[id * 2 + ladder_no] = lib;
+      ctx.string_captured[n] = rating_ladder_state_t::ALIVE;
+      ctx.string_captured_pos[n] = lib;
     }
     Undo(ctx.search_game);
   } else {
-    ctx.string_captured[id * 2 + ladder_no] = rating_ladder_state_t::ILLEGAL;
-    ctx.string_captured_pos[id * 2 + ladder_no] = lib;
+    ctx.string_captured[n] = rating_ladder_state_t::ILLEGAL;
+    ctx.string_captured_pos[n] = lib;
   }
-  return ctx.string_captured[id * 2 + ladder_no];
+  return ctx.string_captured[n];
 }
 
 /////////////////////////////////////////
@@ -1651,6 +1661,26 @@ rating_context_t::clear()
 {
   fill_n(string_captured, extent<decltype(string_captured)>::value, rating_ladder_state_t::UNCHECKED);
   fill_n(string_captured_pos, extent<decltype(string_captured_pos)>::value, PASS);
+}
+
+bool
+rating_context_t::is_alive(int id) const
+{
+  for (auto i = 0; i < num_move_cache; i++) {
+    if (string_captured[id * num_move_cache + i] == rating_ladder_state_t::ALIVE)
+      return true;
+  }
+  return false;
+}
+
+bool
+rating_context_t::is_dead(int id) const
+{
+  for (auto i = 0; i < num_move_cache; i++) {
+    if (string_captured[id * num_move_cache + i] == rating_ladder_state_t::DEAD)
+      return true;
+  }
+  return false;
 }
 
 }

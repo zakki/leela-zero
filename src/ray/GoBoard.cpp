@@ -2181,10 +2181,8 @@ WritePlanes(
       AnalyzePoRating(ctx, side == 0 ? S_BLACK : S_WHITE, rate);
 
       for (int i = 0; i < MAX_STRING; i++) {
-        alive[i] = ctx.string_captured[i * 2 + 0] == rating_ladder_state_t::ALIVE
-          && (ctx.string_captured[i * 2 + 1] == rating_ladder_state_t::UNCHECKED || ctx.string_captured[i * 2 + 1] == rating_ladder_state_t::ALIVE);
-        dead[i] = ctx.string_captured[i * 2 + 0] == rating_ladder_state_t::DEAD
-          || ctx.string_captured[i * 2 + 1] == rating_ladder_state_t::DEAD;
+        alive[i] = ctx.is_alive(i);
+        dead[i] = ctx.is_dead(i);
       }
       OUTPUT({
           int id = string_id[p];
@@ -2296,14 +2294,39 @@ WritePlanes2(
           }
         }
       }
+
+      for (int nlibs = 1; nlibs < 3; nlibs++) {
+        for (int neighbor = string[id].neighbor[0]; neighbor != NEIGHBOR_END; neighbor = string[id].neighbor[neighbor]) {
+          if (string[neighbor].libs != nlibs)
+            continue;
+          for (int lib = string[neighbor].lib[0]; lib != LIBERTY_END; lib = string[neighbor].lib[lib]) {
+            const auto p = PureBoardPos(RevTransformMove(lib, tran));
+            const auto state = GetLadderState(ctx, id, lib, col);
+            if (state == rating_ladder_state_t::DEAD) {
+              if (string[id].color == col) {
+                data_features[ptr + pure_board_max * 0 + p] = 1.0f;
+              }
+              else {
+                data_features[ptr + pure_board_max * 1 + p] = 1.0f;
+              }
+            }
+            else if (state == rating_ladder_state_t::ALIVE) {
+              if (string[id].color == col) {
+                data_features[ptr + pure_board_max * 2 + p] = 1.0f;
+              }
+              else {
+                data_features[ptr + pure_board_max * 3 + p] = 1.0f;
+              }
+            }
+          }
+        }
+      }
     }
     ptr += pure_board_max * 4;
 
     for (int i = 0; i < MAX_STRING; i++) {
-      alive[i] = ctx.string_captured[i * 2 + 0] == rating_ladder_state_t::ALIVE
-        && (ctx.string_captured[i * 2 + 1] == rating_ladder_state_t::UNCHECKED || ctx.string_captured[i * 2 + 1] == rating_ladder_state_t::ALIVE);
-      dead[i] = ctx.string_captured[i * 2 + 0] == rating_ladder_state_t::DEAD
-        || ctx.string_captured[i * 2 + 1] == rating_ladder_state_t::DEAD;
+      alive[i] = ctx.is_alive(i);
+      dead[i] = ctx.is_dead(i);
     }
     OUTPUT({
       if (game->board[p] != S_EMPTY) {
