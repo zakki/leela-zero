@@ -45,7 +45,7 @@ LadderExtension( const game_info_t *game, int color, uint8_t *ladder_pos )
         if (string[neighbor].libs == 1) {
           if (IsLegal(game, string[neighbor].lib[0], color)) {
             PutStoneForSearch(ladder_game, string[neighbor].lib[0], color);
-            int max_size = string[i].origin;
+            int max_size = string[i].size;
             if (IsLadderCaptured(0, ladder_game, string[i].origin, FLIP_COLOR(color), max_size) == DEAD) {
               ladder_pos[string[neighbor].lib[0]] = min(max_size, 0xff);
             } else {
