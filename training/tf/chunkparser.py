@@ -32,6 +32,7 @@ import threading
 import time
 import unittest
 import lzray
+from tfprocess import INPUT_PLANES
 
 # 16 planes, 1 side to move, 1 x 362 probs, 1 winner = 19 lines
 DATA_ITEM_LINES = 16 + 1 + 1 + 1
@@ -280,13 +281,13 @@ class ChunkParser:
         planes = np.concatenate([planes, np.array([stm] * 361, dtype=np.uint8)])
         assert len(planes) == (18 * 19 * 19), len(planes)
 
-        planes.resize(56 * 19 * 19)
+        planes.resize(INPUT_PLANES * 19 * 19)
         lzray.collect_features(planes, stm)
-        assert len(planes) == (56 * 19 * 19), len(planes)
+        assert len(planes) == (INPUT_PLANES * 19 * 19), len(planes)
 
         # Flattern all planes to a single byte string
         planes = planes.tobytes()
-        assert len(planes) == (56 * 19 * 19), len(planes)
+        assert len(planes) == (INPUT_PLANES * 19 * 19), len(planes)
 
         winner = float(winner * 2 - 1)
         assert winner == 1.0 or winner == -1.0, winner
@@ -459,7 +460,7 @@ class ChunkParserTest(unittest.TestCase):
 
         # Convert batch to python lists.
         batch = ( np.reshape(np.frombuffer(data[0], dtype=np.uint8),
-                             (batch_size, 56, 19*19)).tolist(),
+                             (batch_size, INPUT_PLANES, 19*19)).tolist(),
                   np.reshape(np.frombuffer(data[1], dtype=np.float32),
                              (batch_size, 19*19+1)).tolist(),
                   np.reshape(np.frombuffer(data[2], dtype=np.float32),

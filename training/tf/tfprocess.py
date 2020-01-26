@@ -25,6 +25,7 @@ import unittest
 
 from mixprec import float32_variable_storage_getter, LossScalingOptimizer
 
+INPUT_PLANES = 46
 
 def weight_variable(name, shape, dtype):
     """Xavier initialization"""
@@ -169,7 +170,7 @@ class TFProcess:
 
         planes = tf.cast(planes, self.model_dtype)
 
-        planes = tf.reshape(planes, (batch_size, 56, 19*19))
+        planes = tf.reshape(planes, (batch_size, INPUT_PLANES, 19*19))
         probs = tf.reshape(probs, (batch_size, 19*19 + 1))
         winner = tf.reshape(winner, (batch_size, 1))
 
@@ -188,7 +189,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.003 / self.macrobatch, momentum=0.9, use_nesterov=True)
+            learning_rate=0.001 / self.macrobatch, momentum=0.9, use_nesterov=True)
 
         opt = LossScalingOptimizer(opt, scale=self.loss_scale)
 
@@ -597,12 +598,12 @@ class TFProcess:
 
     def construct_net(self, planes):
         # NCHW format
-        # batch, 56 channels, 19 x 19
-        x_planes = tf.reshape(planes, [-1, 56, 19, 19])
+        # batch, INPUT_PLANES channels, 19 x 19
+        x_planes = tf.reshape(planes, [-1, INPUT_PLANES, 19, 19])
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
-                               input_channels=56,
+                               input_channels=INPUT_PLANES,
                                output_channels=self.residual_filters,
                                name="first_conv")
         # Residual tower
@@ -711,7 +712,7 @@ class TFProcessTest(unittest.TestCase):
         tfprocess = TFProcess(6, 128)
         tfprocess.init(batch_size=1)
         # use known data to test replace_weights() works.
-        data = gen_block(3, 56, tfprocess.residual_filters) # input conv
+        data = gen_block(3, INPUT_PLANES, tfprocess.residual_filters) # input conv
         for _ in range(tfprocess.residual_blocks):
             data.extend(gen_block(3,
                 tfprocess.residual_filters, tfprocess.residual_filters))

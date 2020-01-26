@@ -2231,13 +2231,6 @@ WritePlanes2(
   const int opp = FLIP_COLOR(color);
   const position_t *string_id = game->string_id;
   const string_t *string = game->string;
-
-  uint8_t ladder[2][BOARD_MAX] = { 0 };
-
-  // シチョウを調べる
-  LadderExtension(game, color, ladder[0]);
-  LadderExtension(game, opp, ladder[1]);
-
   const int ko = game->ko_pos;
 
 #define OUTPUT(block) \
@@ -2255,13 +2248,6 @@ WritePlanes2(
     OUTPUT({ int l = GetLibs(game, p); OUTPUT_FEATURE(data_features, l >= i + 1); });
   for (int i = 0; i < 8; i++)
     OUTPUT({ int l = GetSize(game, p); OUTPUT_FEATURE(data_features, l >= (i + 1) * 2); });
-  for (int i = 0; i < 2; i++)
-    OUTPUT({ int l = GetEyes(game, p); OUTPUT_FEATURE(data_features, l >= i + 1); });
-
-  for (int i = 0; i < 4; i++)
-    OUTPUT({ OUTPUT_FEATURE(data_features, ladder[0][p] >= 4 + i); });
-  for (int i = 0; i < 4; i++)
-    OUTPUT({ OUTPUT_FEATURE(data_features, ladder[1][p] >= 4 + i); });
 
   rating_context_t ctx(game);
   bool alive[MAX_STRING];

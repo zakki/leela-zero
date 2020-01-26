@@ -181,7 +181,7 @@ if __name__ == "__main__":
     print("Output will have {} blocks and {} channels.".format(
         blocks+new_blocks, channels+new_channels))
 
-    input_planes = 56
+    input_planes = 46
 
     #Input convolution, bias, batch norm means, batch norm variances
     w_input = weights[:4]
