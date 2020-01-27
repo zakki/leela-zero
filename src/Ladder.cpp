@@ -35,7 +35,7 @@ size_t s_clear_board_num;
 
 Ladder::LadderStatus Ladder::ladder_status(const FastState & /*state*/) {
 
-    Ladder::LadderStatus status;
+    Ladder::LadderStatus status = { NO_LADDER };
 /*
     const auto board = state.board;
     for (auto i = 0; i < BOARD_SIZE; i++) {
