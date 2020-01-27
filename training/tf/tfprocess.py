@@ -26,6 +26,7 @@ import unittest
 from mixprec import float32_variable_storage_getter, LossScalingOptimizer
 
 INPUT_PLANES = 46
+BOARD_SIZE = 9
 
 def weight_variable(name, shape, dtype):
     """Xavier initialization"""
@@ -171,8 +172,8 @@ class TFProcess:
         if self.model_dtype != tf.float32:
             planes = tf.cast(planes, self.model_dtype)
 
-        planes = tf.reshape(planes, (batch_size, INPUT_PLANES, 19*19))
-        probs = tf.reshape(probs, (batch_size, 19*19 + 1))
+        planes = tf.reshape(planes, (batch_size, INPUT_PLANES, BOARD_SIZE*BOARD_SIZE))
+        probs = tf.reshape(probs, (batch_size, BOARD_SIZE*BOARD_SIZE + 1))
         winner = tf.reshape(winner, (batch_size, 1))
 
         if gpus_num is None:
@@ -600,7 +601,7 @@ class TFProcess:
     def construct_net(self, planes):
         # NCHW format
         # batch, INPUT_PLANES channels, 19 x 19
-        x_planes = tf.reshape(planes, [-1, INPUT_PLANES, 19, 19])
+        x_planes = tf.reshape(planes, [-1, INPUT_PLANES, BOARD_SIZE, BOARD_SIZE])
 
         # Input convolution
         flow = self.conv_block(x_planes, filter_size=3,
@@ -618,9 +619,9 @@ class TFProcess:
                                    input_channels=self.residual_filters,
                                    output_channels=2,
                                    name="policy_head")
-        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2 * 19 * 19])
-        W_fc1 = weight_variable("w_fc_1", [2 * 19 * 19, (19 * 19) + 1], self.model_dtype)
-        b_fc1 = bias_variable("b_fc_1", [(19 * 19) + 1], self.model_dtype)
+        h_conv_pol_flat = tf.reshape(conv_pol, [-1, 2 * BOARD_SIZE * BOARD_SIZE])
+        W_fc1 = weight_variable("w_fc_1", [2 * BOARD_SIZE * BOARD_SIZE, (BOARD_SIZE * BOARD_SIZE) + 1], self.model_dtype)
+        b_fc1 = bias_variable("b_fc_1", [(BOARD_SIZE * BOARD_SIZE) + 1], self.model_dtype)
         self.add_weights(W_fc1)
         self.add_weights(b_fc1)
         h_fc1 = tf.add(tf.matmul(h_conv_pol_flat, W_fc1), b_fc1)
@@ -630,8 +631,8 @@ class TFProcess:
                                    input_channels=self.residual_filters,
                                    output_channels=1,
                                    name="value_head")
-        h_conv_val_flat = tf.reshape(conv_val, [-1, 19 * 19])
-        W_fc2 = weight_variable("w_fc_2", [19 * 19, 256], self.model_dtype)
+        h_conv_val_flat = tf.reshape(conv_val, [-1, BOARD_SIZE * BOARD_SIZE])
+        W_fc2 = weight_variable("w_fc_2", [BOARD_SIZE * BOARD_SIZE, 256], self.model_dtype)
         b_fc2 = bias_variable("b_fc_2", [256], self.model_dtype)
         self.add_weights(W_fc2)
         self.add_weights(b_fc2)
@@ -721,11 +722,11 @@ class TFProcessTest(unittest.TestCase):
                 tfprocess.residual_filters, tfprocess.residual_filters))
         # policy
         data.extend(gen_block(1, tfprocess.residual_filters, 2))
-        data.append([0.4] * 2*19*19 * (19*19+1))
-        data.append([0.5] * (19*19+1))
+        data.append([0.4] * 2*BOARD_SIZE*BOARD_SIZE * (BOARD_SIZE*BOARD_SIZE+1))
+        data.append([0.5] * (BOARD_SIZE*BOARD_SIZE+1))
         # value
         data.extend(gen_block(1, tfprocess.residual_filters, 1))
-        data.append([0.6] * 19*19 * 256)
+        data.append([0.6] * BOARD_SIZE*BOARD_SIZE * 256)
         data.append([0.7] * 256)
         data.append([0.8] * 256)
         data.append([0.9] * 1)

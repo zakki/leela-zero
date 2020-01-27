@@ -32,7 +32,7 @@ import threading
 import time
 import unittest
 import lzray
-from tfprocess import INPUT_PLANES
+from tfprocess import INPUT_PLANES, BOARD_SIZE
 
 # 16 planes, 1 side to move (komi), 1 x 362 probs, 1 winner = 19 lines
 DATA_ITEM_LINES = 16 + 1 + 1 + 1
@@ -42,16 +42,16 @@ def remap_vertex(vertex, symmetry):
         Remap a go board coordinate according to a symmetry.
     """
     assert vertex >= 0 and vertex < 361
-    x = vertex % 19
-    y = vertex // 19
+    x = vertex % BOARD_SIZE
+    y = vertex // BOARD_SIZE
     if symmetry >= 4:
         x, y = y, x
         symmetry -= 4
     if symmetry == 1 or symmetry == 3:
-        x = 19 - x - 1
+        x = BOARD_SIZE - x - 1
     if symmetry == 2 or symmetry == 3:
-        y = 19 - y - 1
-    return y * 19 + x
+        y = BOARD_SIZE - y - 1
+    return y * BOARD_SIZE + x
 
 # Interface for a chunk data source.
 class ChunkDataSrc:
@@ -231,7 +231,7 @@ class ChunkParser:
         # We use the full length reflection tables to apply symmetry
         # to all 16 planes simultaneously
         planes = planes[self.full_reflection_table[symmetry]]
-        assert len(planes) == 19*19*16
+        assert len(planes) == BOARD_SIZE*BOARD_SIZE*16
         planes = np.packbits(planes)
         planes = planes.tobytes()
 
@@ -264,22 +264,22 @@ class ChunkParser:
         (ver, probs, planes, to_move, winner) = self.v2_struct.unpack(content)
         # Unpack planes.
         planes = np.unpackbits(np.frombuffer(planes, dtype=np.uint8)).astype('f')
-        assert len(planes) == 19*19*16
+        assert len(planes) == BOARD_SIZE*BOARD_SIZE*16
         # Now we add the two final planes, being the 'color to move' (komi) planes.
         stm = to_move
-        assert len(planes) == (16 * 19 * 19), len(planes)
+        assert len(planes) == (16 * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         planes = np.concatenate([planes, np.array([1 - stm] * 361, dtype=np.float32)])
         planes = np.concatenate([planes, np.array([stm] * 361, dtype=np.float32)])
-        assert len(planes) == (18 * 19 * 19), len(planes)
+        assert len(planes) == (18 * BOARD_SIZE * BOARD_SIZE), len(planes)
 
-        planes.resize(INPUT_PLANES * 19 * 19)
+        planes.resize(INPUT_PLANES * BOARD_SIZE * BOARD_SIZE)
         lzray.collect_features(planes, stm)
-        assert len(planes) == (INPUT_PLANES * 19 * 19), len(planes)
+        assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         # Flattern all planes to a single byte string
         planes = planes.tobytes()
-        assert len(planes) == (INPUT_PLANES * 19 * 19), len(planes)
+        assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         winner = float(winner * 2 - 1)
         assert winner == 1.0 or winner == -1.0, winner
@@ -452,9 +452,9 @@ class ChunkParserTest(unittest.TestCase):
 
         # Convert batch to python lists.
         batch = ( np.reshape(np.frombuffer(data[0], dtype=np.float32),
-                             (batch_size, INPUT_PLANES, 19*19)).tolist(),
+                             (batch_size, INPUT_PLANES, BOARD_SIZE*BOARD_SIZE)).tolist(),
                   np.reshape(np.frombuffer(data[1], dtype=np.float32),
-                             (batch_size, 19*19+1)).tolist(),
+                             (batch_size, BOARD_SIZE*BOARD_SIZE+1)).tolist(),
                   np.reshape(np.frombuffer(data[2], dtype=np.float32),
                              (batch_size, 1)).tolist() )
 

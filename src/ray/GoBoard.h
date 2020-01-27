@@ -8,7 +8,7 @@
 //    定数    //
 ////////////////
 
-const int PURE_BOARD_SIZE = 19;  // 盤の大きさ
+static constexpr auto PURE_BOARD_SIZE = 9;  // 盤の大きさ
 
 const int OB_SIZE = 5; // 盤外の幅
 const int BOARD_SIZE = (PURE_BOARD_SIZE + OB_SIZE + OB_SIZE); // 盤外を含めた盤の幅

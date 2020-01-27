@@ -66,7 +66,7 @@ void WritePlanes(std::vector<float>& planes, int color)
 
 void collect_features(std::vector<float>& planes, bool color) {
   size_t N = planes.size();
-  if (N != 19 * 19 * (18 + num_features))
+  if (N != pure_board_max * (18 + num_features))
     throw std::runtime_error("planes must be 19 * 19 * N " + std::to_string(N));
   if (color != 0 && color != 1)
     throw std::runtime_error("illegal color");
