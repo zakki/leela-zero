@@ -102,7 +102,7 @@ float Network::benchmark_time(int centiseconds) {
     std::atomic<int> runcount{0};
 
     GameState state;
-    state.init_game(BOARD_SIZE, KOMI);
+    state.init_game(BOARD_SIZE, TRAINED_UNIT_KOMI);
 
     // As a sanity run, try one run with self check.
     // Isn't enough to guarantee correctness but better than nothing,
@@ -1073,6 +1073,10 @@ void Network::set_ladder_map(const GameState* const state,
     }
 }
 
+float Network::get_normalised_komi(const GameState* const state) {
+    return 0.5f + (state->get_komi() / (2.0f * TRAINED_UNIT_KOMI));
+}
+
 std::vector<float> Network::gather_features(const GameState* const state,
                                             const int symmetry,
                                             const bool use_handcrafted_features) {
@@ -1088,9 +1092,6 @@ std::vector<float> Network::gather_features(const GameState* const state,
     const auto white_it = blacks_move ?
                           begin(input_data) + INPUT_MOVES * NUM_INTERSECTIONS :
                           begin(input_data);
-    const auto to_move_it = blacks_move ?
-        begin(input_data) + (2 * INPUT_MOVES) * NUM_INTERSECTIONS :
-        begin(input_data) + (2 * INPUT_MOVES + 1) * NUM_INTERSECTIONS;
 
     const auto moves = std::min<size_t>(state->get_movenum() + 1, INPUT_MOVES);
     // Go back in time, fill history boards
@@ -1102,7 +1103,15 @@ std::vector<float> Network::gather_features(const GameState* const state,
                               symmetry);
     }
 
-    std::fill(to_move_it, to_move_it + NUM_INTERSECTIONS, float(true));
+    const auto black_to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
+    const auto white_to_move_it = black_to_move_it + NUM_INTERSECTIONS;
+    const auto pos_norm_komi = get_normalised_komi(state);
+    const auto neg_norm_komi = 1.0f - pos_norm_komi;
+    const auto black_norm_komi = blacks_move ? pos_norm_komi : neg_norm_komi;
+    const auto white_norm_komi = blacks_move ? neg_norm_komi : pos_norm_komi;
+
+    std::fill(black_to_move_it, black_to_move_it + NUM_INTERSECTIONS, black_norm_komi);
+    std::fill(white_to_move_it, white_to_move_it + NUM_INTERSECTIONS, white_norm_komi);
 
     if (use_handcrafted_features) {
         collect_features(input_data, blacks_move);

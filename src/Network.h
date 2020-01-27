@@ -99,6 +99,7 @@ public:
     static void show_heatmap(const FastState * const state,
                              const Netresult & netres, const bool topmoves);
 
+    static float get_normalised_komi(const GameState* const state);
     static std::vector<float> gather_features(const GameState* const state,
                                               const int symmetry,
                                               const bool use_handcrafted_features = true);
