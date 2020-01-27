@@ -83,12 +83,12 @@ def fake_fetch_games(q_out, num_games):
         # Generate a 200 move 'game'
         # Generate a random game move.
         # 1. 18 binary planes of length 361
-        planes = [np.random.randint(2, size=361).tolist() for plane in range(16)]
+        planes = [np.random.randint(2, size=BOARD_SIZE * BOARD_SIZE).tolist() for plane in range(16)]
         stm = float(np.random.randint(2))
-        planes.append([stm] * 361)
-        planes.append([1. - stm] * 361)
+        planes.append([stm] * (BOARD_SIZE * BOARD_SIZE))
+        planes.append([1. - stm] * (BOARD_SIZE * BOARD_SIZE))
         # 2. 362 probs
-        probs = np.random.randint(3, size=362).tolist()
+        probs = np.random.randint(3, size=BOARD_SIZE * BOARD_SIZE+1).tolist()
         # 3. And a winner: 1 or -1
         winner = [ 2 * float(np.random.randint(2)) - 1 ]
 

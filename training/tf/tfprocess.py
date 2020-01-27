@@ -191,7 +191,7 @@ class TFProcess:
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt = tf.train.MomentumOptimizer(
-            learning_rate=0.001 / self.macrobatch, momentum=0.9, use_nesterov=True)
+            learning_rate=0.01 / self.macrobatch, momentum=0.9, use_nesterov=True)
 
         opt = LossScalingOptimizer(opt, scale=self.loss_scale)
 

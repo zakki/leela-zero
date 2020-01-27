@@ -31,7 +31,7 @@ import sys
 import threading
 import time
 import unittest
-import lzray
+import lzrayk
 from tfprocess import INPUT_PLANES, BOARD_SIZE
 
 # 16 planes, 1 side to move (komi), 1 x 362 probs, 1 winner = 19 lines
@@ -41,7 +41,7 @@ def remap_vertex(vertex, symmetry):
     """
         Remap a go board coordinate according to a symmetry.
     """
-    assert vertex >= 0 and vertex < 361
+    assert vertex >= 0 and vertex < BOARD_SIZE * BOARD_SIZE
     x = vertex % BOARD_SIZE
     y = vertex // BOARD_SIZE
     if symmetry >= 4:
@@ -102,11 +102,11 @@ class ChunkParser:
         # The last element is 'pass' and is identity mapped.
         self.prob_reflection_table = [
             [remap_vertex(vertex, sym)
-              for vertex in range(361)]+[361] for sym in range(8)]
+              for vertex in range(BOARD_SIZE * BOARD_SIZE)]+[BOARD_SIZE * BOARD_SIZE] for sym in range(8)]
         # Build full 16-plane reflection tables.
         self.full_reflection_table = [
-            np.array([remap_vertex(vertex, sym) + p * 361
-                for p in range(16) for vertex in range(361)])
+            np.array([remap_vertex(vertex, sym) + p * BOARD_SIZE * BOARD_SIZE
+                for p in range(16) for vertex in range(BOARD_SIZE * BOARD_SIZE)])
                     for sym in range(8)]
         # Convert both to np.array.
         # This avoids a conversion step when they're actually used.
@@ -147,7 +147,10 @@ class ChunkParser:
         # 19*19*16 packed bit planes (722 bytes)
         # float32 side_to_move (4 bytes)
         # uint8 is_winner (1 byte)
-        self.v2_struct = struct.Struct('4s1448s722sfB')
+        if BOARD_SIZE == 19:
+            self.v2_struct = struct.Struct('4s1448s722sfB')
+        elif BOARD_SIZE == 9:
+            self.v2_struct = struct.Struct('4s328s162sfB')
 
         # Struct used to return data from child workers.
         # float32 winner
@@ -155,7 +158,10 @@ class ChunkParser:
         # uint*6498 planes
         # (order is to ensure that no padding is required to
         #  make float32 be 32-bit aligned)
-        self.raw_struct = struct.Struct('4s1448s6498s')
+        if BOARD_SIZE == 19:
+            self.raw_struct = struct.Struct('4s1448s6498s')
+        elif BOARD_SIZE == 9:
+            self.raw_struct = struct.Struct('4s328s1458s')
 
     def convert_v1_to_v2(self, text_item):
         """
@@ -172,7 +178,11 @@ class ChunkParser:
         planes = []
         for plane in range(0, 16):
             # first 360 first bits are 90 hex chars, encoded MSB
-            hex_string = text_item[plane][0:90]
+            if BOARD_SIZE == 19:
+                num_hex = 90
+            elif BOARD_SIZE == 9:
+                num_hex = 20
+            hex_string = text_item[plane][0:num_hex]
             try:
                 array = np.unpackbits(np.frombuffer(
                     bytearray.fromhex(hex_string), dtype=np.uint8))
@@ -180,7 +190,7 @@ class ChunkParser:
                 return False, None
             # Remaining bit that didn't fit. Encoded LSB so
             # it needs to be specially handled.
-            last_digit = text_item[plane][90]
+            last_digit = text_item[plane][num_hex]
             if not (last_digit == "0" or last_digit == "1"):
                 return False, None
             # Apply symmetry and append
@@ -201,11 +211,11 @@ class ChunkParser:
             # Work around a bug in leela-zero v0.3, skipping any
             # positions that have a NaN in the probabilities list.
             return False, None
-        if not(len(probabilities) == 362):
+        if not(len(probabilities) == BOARD_SIZE * BOARD_SIZE + 1):
             return False, None
 
         probs = probabilities.tobytes()
-        if not(len(probs) == 362 * 4):
+        if not(len(probs) == (BOARD_SIZE * BOARD_SIZE + 1) * 4):
             return False, None
 
         # Load the game winner color.
@@ -238,7 +248,7 @@ class ChunkParser:
         probs = np.frombuffer(probs, dtype=np.float32)
         # Apply symmetries to the probabilities.
         probs = probs[self.prob_reflection_table[symmetry]]
-        assert len(probs) == 362
+        assert len(probs) == BOARD_SIZE * BOARD_SIZE + 1
         probs = probs.tobytes()
 
         # repack record.
@@ -269,17 +279,17 @@ class ChunkParser:
         stm = to_move
         assert len(planes) == (16 * BOARD_SIZE * BOARD_SIZE), len(planes)
 
-        planes = np.concatenate([planes, np.array([1 - stm] * 361, dtype=np.float32)])
-        planes = np.concatenate([planes, np.array([stm] * 361, dtype=np.float32)])
+        planes = np.concatenate([planes, np.array([1 - stm] * (BOARD_SIZE * BOARD_SIZE), dtype=np.float32)])
+        planes = np.concatenate([planes, np.array([stm] * (BOARD_SIZE * BOARD_SIZE), dtype=np.float32)])
         assert len(planes) == (18 * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         planes.resize(INPUT_PLANES * BOARD_SIZE * BOARD_SIZE)
-        lzray.collect_features(planes, stm)
+        lzrayk.collect_features(planes, stm)
         assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         # Flattern all planes to a single byte string
         planes = planes.tobytes()
-        assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE), len(planes)
+        assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE * 4), len(planes)
 
         winner = float(winner * 2 - 1)
         assert winner == 1.0 or winner == -1.0, winner
@@ -400,13 +410,13 @@ class ChunkParserTest(unittest.TestCase):
             Result is ([[361] * 18], [362], [1])
         """
         # 1. 18 binary planes of length 361
-        planes = [np.random.randint(2, size=361).tolist()
+        planes = [np.random.randint(2, size=(BOARD_SIZE * BOARD_SIZE)).tolist()
                   for plane in range(16)]
         stm = float(np.random.randint(2))
-        planes.append([stm] * 361)
-        planes.append([1. - stm] * 361)
+        planes.append([stm] * (BOARD_SIZE * BOARD_SIZE))
+        planes.append([1. - stm] * (BOARD_SIZE * BOARD_SIZE))
         # 2. 362 probs
-        probs = np.random.randint(3, size=362).tolist()
+        probs = np.random.randint(3, size=BOARD_SIZE * BOARD_SIZE + 1).tolist()
         # 3. And a winner: 1 or -1
         winner = [ 2 * float(np.random.randint(2)) - 1 ]
         return (planes, probs, winner)
@@ -426,10 +436,16 @@ class ChunkParserTest(unittest.TestCase):
         # Convert that to a v1 text record.
         items = []
         for p in range(16):
-            # generate first 360 bits
-            h = np.packbits([int(x) for x in planes[p][0:360]]).tobytes().hex()
-            # then add the stray single bit
-            h += str(planes[p][360]) + "\n"
+            if BOARD_SIZE == 19:
+                # generate first 360 bits
+                h = np.packbits([int(x) for x in planes[p][0:360]]).tobytes().hex()
+                # then add the stray single bit
+                h += str(planes[p][360]) + "\n"
+            elif BOARD_SIZE == 9:
+                # generate first 80 bits
+                h = np.packbits([int(x) for x in planes[p][0:80]]).tobytes().hex()
+                # then add the stray single bit
+                h += str(planes[p][80]) + "\n"
             items.append(h)
         # then side to move/komi
         items.append(str(planes[17][0]) + "\n")
@@ -440,6 +456,7 @@ class ChunkParserTest(unittest.TestCase):
 
         # Convert to a chunkdata byte string.
         chunkdata = ''.join(items).encode('ascii')
+        print("Read chunk {}".format(chunkdata))
 
         # feed batch_size copies into parser
         chunkdatasrc = ChunkDataSrc([chunkdata for _ in range(batch_size*2)])
@@ -469,11 +486,11 @@ class ChunkParserTest(unittest.TestCase):
                 # Apply the symmetry to the original
                 sym_planes = [
                     [plane[remap_vertex(vertex, symmetry)]
-                        for vertex in range(361)]
+                        for vertex in range(BOARD_SIZE * BOARD_SIZE)]
                             for plane in planes]
                 sym_probs = [
                     probs[remap_vertex(vertex, symmetry)]
-                        for vertex in range(361)] + [probs[361]]
+                        for vertex in range(BOARD_SIZE * BOARD_SIZE)] + [probs[BOARD_SIZE * BOARD_SIZE]]
 
                 if symmetry == 0:
                     assert sym_planes == planes
