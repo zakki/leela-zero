@@ -1195,6 +1195,10 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             bool black = true;
             int pass_count = 0;
             execute(game, "clear_board");
+            double komi = (mt() % 28) / 2.0;
+            if (mt() % 2 == 0)
+              komi = 7 + (mt() % 9 - 4) / 2.0;
+            game.set_komi(komi);
 
             size_t count = 0;
             do {
