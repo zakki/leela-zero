@@ -135,6 +135,19 @@ def main():
     train_data_prefix = args.train or args.trainpref
     restore_prefix = args.restore or args.restorepref
 
+    if not restore_prefix:
+        restore_files = glob.glob("leelaz-model-*.txt")
+        max = -1
+        for f in restore_files:
+            if "-swa-" in f:
+                continue
+            f = int(f[13:-4])
+            if f > max:
+                max = f
+        if max >= 0:
+            restore_prefix = "leelaz-model-" + str(max)
+            print("restore from {}".format(restore_prefix))
+
     if not blocks or not filters:
         print("Must supply number of blocks and filters")
         return
