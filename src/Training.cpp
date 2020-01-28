@@ -291,6 +291,8 @@ void Training::dump_training(int winner_color, OutputChunker& outchunk) {
         // And the game result for the side to move
         if (step.to_move == winner_color) {
             out << "1";
+        } else if (FullBoard::EMPTY == winner_color) {
+            out << "0";
         } else {
             out << "-1";
         }

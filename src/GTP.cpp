@@ -1130,6 +1130,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             who_won = FullBoard::WHITE;
         } else if (winner_color == "b" || winner_color == "black") {
             who_won = FullBoard::BLACK;
+        } else if (winner_color == "d" || winner_color == "draw") {
+            who_won = FullBoard::EMPTY;
         } else {
             gtp_fail_printf(id, "syntax not understood");
             return;
@@ -1222,7 +1224,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             execute(game, "printsgf " + filename + ".sgf");
             execute(game, "dump_debug " + filename + ".debug.txt");
 
-            int win = FastBoard::EMPTY;
+            int win = FastBoard::INVAL;
 
             if (game.who_resigned() == FastBoard::BLACK) {
                 win = FastBoard::WHITE;
@@ -1241,6 +1243,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                 execute(game, "dump_training black " + filename + ".txt");
             } else if (win == FastBoard::WHITE) {
                 execute(game, "dump_training white " + filename + ".txt");
+            } else if (win == FastBoard::EMPTY) {
+                execute(game, "dump_training draw " + filename + ".txt");
             } else {
                 gtp_fail_printf(id, "unknown result");
             }
