@@ -1237,6 +1237,8 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                     win = FastBoard::WHITE;
                 } else if (ftmp > 0.1) {
                     win = FastBoard::BLACK;
+                } else {
+                    win = FastBoard::EMPTY;
                 }
             }
             if (win == FastBoard::BLACK) {
