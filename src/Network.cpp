@@ -976,6 +976,8 @@ Network::Netresult Network::get_output_internal(
     result.policy_pass = outputs[NUM_INTERSECTIONS];
     if (true) {
       if (state->get_movenum() < BOARD_SIZE * BOARD_SIZE / 2)
+        result.policy_pass = 1e-10;
+      else if (state->get_movenum() < BOARD_SIZE * BOARD_SIZE * 3 / 4)
         result.policy_pass *= 0.1;
       else if (state->get_movenum() > BOARD_SIZE * BOARD_SIZE)
         result.policy_pass += 0.01;
