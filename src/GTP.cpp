@@ -1191,16 +1191,17 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         std::random_device rnd;
         std::mt19937_64 mt(rnd());
         auto distribution = std::uniform_real_distribution<double>{ 0.0, 1.0 };
+        auto komidist = std::uniform_int_distribution<int>{ 0, 16 };
 
         for (size_t i = 0; i < num; i++) {
             const auto filename = basename + std::to_string(i);
             bool black = true;
             int pass_count = 0;
             execute(game, "clear_board");
-            double komi = (mt() % 28) / 2.0;
-            if (mt() % 2 == 0)
-              komi = 7 + (mt() % 9 - 4) / 2.0;
+
+            double komi = 7.0 + (komidist(mt) - 8) / 2.0;
             game.set_komi(komi);
+            myprintf("Komi: %f\n", komi);
 
             size_t count = 0;
             do {
