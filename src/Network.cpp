@@ -922,12 +922,14 @@ Network::Netresult Network::get_output_internal(
 //  Ladder::display_ladders();
 */
     std::vector<int> ladder_map(NUM_INTERSECTIONS);
+    if (cfg_training_heuristics) {
 //  set_ladder_map(state, begin(ladder_map), symmetry);
-    set_ladder_map(state, begin(ladder_map),        0);
+      set_ladder_map(state, begin(ladder_map),        0);
 //  myprintf("ladder_map. m_komove=%d\n",state->m_komove);
-    if (0) for (auto idx = 0; idx < NUM_INTERSECTIONS; idx++) {
-        myprintf("%2d",ladder_map[idx]);
-        if ( ((idx+1) % BOARD_SIZE) == 0 ) myprintf("\n");
+      if (0) for (auto idx = 0; idx < NUM_INTERSECTIONS; idx++) {
+          myprintf("%2d",ladder_map[idx]);
+          if ( ((idx+1) % BOARD_SIZE) == 0 ) myprintf("\n");
+        }
     }
 
     Netresult result;
@@ -936,7 +938,7 @@ Network::Netresult Network::get_output_internal(
         const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
         result.policy[sym_idx] = outputs[idx];
         int ladder = ladder_map[sym_idx];
-        if ( 1 && ladder ) {
+        if ( cfg_training_heuristics && ladder ) {
             float r = result.policy[sym_idx];
             float mul = 1.0f / 1000000.0f;
 //          if ( state->m_komove != FastBoard::NO_VERTEX ) mul = 1.0;   //  ladder escape maybe ok for ko threat?
@@ -963,7 +965,7 @@ Network::Netresult Network::get_output_internal(
             }
             result.policy[sym_idx] = r;
         }
-        if (true) {
+        if (cfg_training_heuristics) {
             const auto y = sym_idx % BOARD_SIZE;
             const auto x = sym_idx / BOARD_SIZE;
             const auto vertex = state->board.get_vertex(y, x);
@@ -974,7 +976,7 @@ Network::Netresult Network::get_output_internal(
     }
 
     result.policy_pass = outputs[NUM_INTERSECTIONS];
-    if (true) {
+    if (cfg_training_heuristics) {
       if (state->get_movenum() < BOARD_SIZE * BOARD_SIZE / 2)
         result.policy_pass = 1e-10;
       else if (state->get_movenum() < BOARD_SIZE * BOARD_SIZE * 3 / 4)

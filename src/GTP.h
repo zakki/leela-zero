@@ -125,6 +125,7 @@ extern std::string cfg_options_str;
 extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern AnalyzeTags cfg_analyze_tags;
+extern bool cfg_training_heuristics;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 

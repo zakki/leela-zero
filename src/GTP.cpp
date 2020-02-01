@@ -100,6 +100,7 @@ std::string cfg_options_str;
 bool cfg_benchmark;
 bool cfg_cpu_only;
 AnalyzeTags cfg_analyze_tags;
+bool cfg_training_heuristics;
 
 /* Parses tags for the lz-analyze GTP command and friends */
 AnalyzeTags::AnalyzeTags(std::istringstream& cmdstream, const GameState& game) {
@@ -1202,6 +1203,9 @@ void GTP::execute(GameState & game, const std::string& xinput) {
             double komi = 7.0 + (komidist(mt) - 8) / 2.0;
             game.set_komi(komi);
             myprintf("Komi: %f\n", komi);
+
+            cfg_training_heuristics = distribution(mt) > 0.9;
+            myprintf("heuristics: %d\n", cfg_training_heuristics);
 
             size_t count = 0;
             do {
