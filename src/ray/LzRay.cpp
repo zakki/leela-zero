@@ -120,7 +120,7 @@ void init_ray() {
   //InitializeUctRating();
   InitializeHash();
   InitializeUctHash();
-  rating_v2::SetNeighbor();
+  //rating_v2::SetNeighbor();
 
   //py::def("collect_features", collect_features);
 }
