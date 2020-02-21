@@ -126,6 +126,7 @@ extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern AnalyzeTags cfg_analyze_tags;
 extern bool cfg_training_heuristics;
+extern bool in_small_search;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 

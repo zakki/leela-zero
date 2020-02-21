@@ -194,11 +194,13 @@ void Training::record(Network& network, GameState& state, UCTNode& root) {
 
     step.probabilities.resize(POTENTIAL_MOVES);
 
+    const auto target_visits = root.prune_policy_target();
+
     // Get total visit amount. We count rather
     // than trust the root to avoid ttable issues.
     auto sum_visits = 0.0;
-    for (const auto& child : root.get_children()) {
-        sum_visits += child->get_visits();
+    for (const auto& v : target_visits) {
+        sum_visits += v;
     }
 
     // In a terminal position (with 2 passes), we can have children, but we
@@ -209,8 +211,9 @@ void Training::record(Network& network, GameState& state, UCTNode& root) {
         return;
     }
 
-    for (const auto& child : root.get_children()) {
-        auto prob = static_cast<float>(child->get_visits() / sum_visits);
+    for (auto i = size_t{0}; i < root.get_children().size(); i++) {
+        const auto& child = root.get_children()[i];
+        auto prob = static_cast<float>(target_visits[i] / sum_visits);
         auto move = child->get_move();
         if (move != FastBoard::PASS) {
             auto xy = state.board.get_xy(move);

@@ -101,6 +101,7 @@ bool cfg_benchmark;
 bool cfg_cpu_only;
 AnalyzeTags cfg_analyze_tags;
 bool cfg_training_heuristics;
+bool in_small_search;
 
 /* Parses tags for the lz-analyze GTP command and friends */
 AnalyzeTags::AnalyzeTags(std::istringstream& cmdstream, const GameState& game) {
@@ -369,6 +370,8 @@ void GTP::setup_default_parameters() {
 #endif
 
     cfg_analyze_tags = AnalyzeTags{};
+
+    in_small_search = false;
 
     // C++11 doesn't guarantee *anything* about how random this is,
     // and in MinGW it isn't random at all. But we can mix it in, which
@@ -1210,20 +1213,17 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
             size_t count = 0;
             do {
-                auto small = false;
+                in_small_search = false;
                 if (count > 0 && cfg_max_partial_visits < cfg_max_visits) {
-                  small = distribution(mt) > 0.25;
-                  if (small)
-                    search->set_visit_limit(cfg_max_partial_visits);
-                  else
-                    search->set_visit_limit(cfg_max_visits);
+                    in_small_search = distribution(mt) > 0.25;
+                    if (in_small_search)
+                        search->set_visit_limit(cfg_max_partial_visits);
+                    else
+                        search->set_visit_limit(cfg_max_visits);
                 }
                 int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
                 game.play_move(move);
                 game.display_state();
-                if (small) {
-                    Training::pop_training();
-                }
                 count++;
             } while (game.get_passes() < 2 && !game.has_resigned());
 

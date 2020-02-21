@@ -233,3 +233,27 @@ void UCTNode::prepare_root_node(Network & network, int color,
         dirichlet_noise(0.25f, alpha);
     }
 }
+
+std::vector<int> UCTNode::prune_policy_target() {
+    // Pruning
+    std::vector<int> pruned_visits(m_children.size());
+    auto max_visits = 0;
+    auto sum_visits = 0;
+    for (auto& node : m_children) {
+        const auto v = node->get_visits();
+        max_visits = std::max(max_visits, v);
+        sum_visits += v;
+    }
+    for (auto i = size_t{0}; i < m_children.size(); i++) {
+        const auto& node = m_children[i];
+        const auto visits = node->get_visits();
+        auto p = 0;
+        if (visits < max_visits) {
+            p = static_cast<int>(sqrt(2.0 * node.get_policy() * sum_visits * 0.25f) + 1);
+            if (p > visits)
+                p = visits;
+        }
+        pruned_visits[i] = visits - p;
+    }
+    return pruned_visits;
+}

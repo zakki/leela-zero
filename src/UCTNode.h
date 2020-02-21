@@ -97,6 +97,8 @@ public:
     void inflate_all_children();
 
     void clear_expand_state();
+
+	std::vector<int> prune_policy_target();
 private:
     enum Status : char {
         INVALID, // superko

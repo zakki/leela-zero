@@ -345,7 +345,14 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         const auto psa = child.get_policy();
         const auto denom = 1.0 + child.get_visits();
         const auto puct = cfg_puct * psa * (numerator / denom);
-        const auto value = winrate + puct;
+        auto force = 0.0;
+        if (is_root && cfg_noise && !in_small_search) {
+            // Forced Playouts
+            const auto n = sqrt(2.0 * psa * parentvisits * 0.25f);
+            if (denom < n)
+              force = 1.0;
+        }
+        const auto value = winrate + puct + force;
         assert(value > std::numeric_limits<double>::lowest());
 
         if (value > best_value) {
