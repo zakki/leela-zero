@@ -1210,7 +1210,6 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
             size_t count = 0;
             do {
-                int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
                 auto small = false;
                 if (count > 0 && cfg_max_partial_visits < cfg_max_visits) {
                   small = distribution(mt) > 0.25;
@@ -1219,6 +1218,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                   else
                     search->set_visit_limit(cfg_max_visits);
                 }
+                int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
                 game.play_move(move);
                 game.display_state();
                 if (small) {
