@@ -1185,7 +1185,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
     } else if (command.find("run_selfplay") == 0) {
         std::istringstream cmdstream(command);
         std::string tmp;
-        int num = 0;
+        size_t num = 0;
 
         cmdstream >> tmp;  // eat komi
         cmdstream >> num;
@@ -1200,8 +1200,6 @@ void GTP::execute(GameState & game, const std::string& xinput) {
 
         for (size_t i = 0; i < num; i++) {
             const auto filename = basename + std::to_string(i);
-            bool black = true;
-            int pass_count = 0;
             execute(game, "clear_board");
 
             double komi = 7.0 + (komidist(mt) - 8) / 2.0;
