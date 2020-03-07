@@ -49,24 +49,28 @@ class SearchResult {
 public:
     SearchResult() = default;
     bool valid() const { return m_valid;  }
-    float eval() const { return m_eval;  }
-    static SearchResult from_eval(float eval) {
-        return SearchResult(eval);
+    float eval() const { return m_eval; }
+    float sum_b() const { return m_sum_b; }
+    float sum_w() const { return m_sum_w; }
+    static SearchResult from_eval(float eval, float sum_b, float sum_w) {
+        return SearchResult(eval, sum_b, sum_w);
     }
-    static SearchResult from_score(float board_score) {
+    static SearchResult from_score(float board_score, float sum_b, float sum_w) {
         if (board_score > 0.0f) {
-            return SearchResult(1.0f);
+            return SearchResult(1.0f, sum_b, sum_w);
         } else if (board_score < 0.0f) {
-            return SearchResult(0.0f);
+            return SearchResult(0.0f, sum_b, sum_w);
         } else {
-            return SearchResult(0.5f);
+            return SearchResult(0.5f, sum_b, sum_w);
         }
     }
 private:
-    explicit SearchResult(float eval)
-        : m_valid(true), m_eval(eval) {}
+    explicit SearchResult(float eval, float sum_b, float sum_w)
+        : m_valid(true), m_eval(eval), m_sum_b(sum_b), m_sum_w(sum_w) {}
     bool m_valid{false};
-    float m_eval{0.0f};
+    float m_eval{ 0.0f };
+    float m_sum_b{ 0.0f };
+    float m_sum_w{ 0.0f };
 };
 
 namespace TimeManagement {

@@ -57,6 +57,7 @@ public:
     bool create_children(Network & network,
                          std::atomic<int>& nodecount,
                          GameState& state, float& eval,
+                         float& es_sum_b, float& es_sum_w,
                          float min_psa_ratio = 0.0f);
 
     const std::vector<UCTNodePointer>& get_children() const;
@@ -80,9 +81,10 @@ public:
     float get_eval(int tomove) const;
     float get_raw_eval(int tomove, int virtual_loss = 0) const;
     float get_net_eval(int tomove) const;
+    float get_endstate_sum() const;
     void virtual_loss();
     void virtual_loss_undo();
-    void update(float eval);
+    void update(float eval, float es_sum_b, float es_sum_w);
     float get_eval_lcb(int color) const;
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
@@ -110,6 +112,9 @@ private:
                        float min_psa_ratio);
     double get_blackevals() const;
     void accumulate_eval(float eval);
+    double get_sum_b() const;
+    double get_sum_w() const;
+    void accumulate_sum(float black, float white);
     void kill_superkos(const GameState& state);
     void dirichlet_noise(float epsilon, float alpha);
 
@@ -132,6 +137,8 @@ private:
     std::atomic<float> m_squared_eval_diff{1e-4f};
     std::atomic<double> m_blackevals{0.0};
     std::atomic<Status> m_status{ACTIVE};
+    std::atomic<double> m_sum_b{0.0};
+    std::atomic<double> m_sum_w{0.0};
 
     // m_expand_state acts as the lock for m_children.
     // see manipulation methods below for possible state transition

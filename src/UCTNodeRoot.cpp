@@ -206,15 +206,17 @@ void UCTNode::inflate_all_children() {
 void UCTNode::prepare_root_node(Network & network, int color,
                                 std::atomic<int>& nodes,
                                 GameState& root_state) {
-    float root_eval;
+    float root_eval, es_sum_b, es_sum_w;
     const auto had_children = has_children();
     if (expandable()) {
-        create_children(network, nodes, root_state, root_eval);
+        create_children(network, nodes, root_state, root_eval, es_sum_b, es_sum_w);
     }
     if (had_children) {
         root_eval = get_net_eval(color);
+        es_sum_b = get_sum_b();
+        es_sum_w = get_sum_w();
     } else {
-        update(root_eval);
+        update(root_eval, es_sum_b, es_sum_w);
         root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
     }
     Utils::myprintf("NN eval=%f\n", root_eval);

@@ -62,6 +62,8 @@ bool UCTNode::create_children(Network & network,
                               std::atomic<int>& nodecount,
                               GameState& state,
                               float& eval,
+                              float& es_sum_b,
+                              float& es_sum_w,
                               float min_psa_ratio) {
     // no successors in final state
     if (state.get_passes() >= 2) {
@@ -91,6 +93,8 @@ bool UCTNode::create_children(Network & network,
     // DCNN returns winrate as side to move
     const auto stm_eval = raw_netlist.winrate;
     const auto to_move = state.board.get_to_move();
+    es_sum_b = raw_netlist.endstate_sum_b;
+    es_sum_w = raw_netlist.endstate_sum_w;
     // our search functions evaluate from black's point of view
     if (to_move == FastBoard::WHITE) {
         m_net_eval = 1.0f - stm_eval;
@@ -150,7 +154,7 @@ bool UCTNode::create_children(Network & network,
 
     link_nodelist(nodecount, nodelist, min_psa_ratio);
     // Increment visit and assign eval.
-    update(eval);
+    update(eval, es_sum_b, es_sum_w);
     expand_done();
     return true;
 }
@@ -210,13 +214,14 @@ void UCTNode::virtual_loss_undo() {
     m_virtual_loss -= VIRTUAL_LOSS_COUNT;
 }
 
-void UCTNode::update(float eval) {
+void UCTNode::update(float eval, float es_sum_b, float es_sum_w) {
     // Cache values to avoid race conditions.
     auto old_eval = static_cast<float>(m_blackevals);
     auto old_visits = static_cast<int>(m_visits);
     auto old_delta = old_visits > 0 ? eval - old_eval / old_visits : 0.0f;
     m_visits++;
     accumulate_eval(eval);
+    accumulate_sum(es_sum_b, es_sum_w);
     auto new_delta = eval - (old_eval + eval) / (old_visits + 1);
     // Welford's online algorithm for calculating variance.
     auto delta = old_delta * new_delta;
@@ -303,6 +308,25 @@ double UCTNode::get_blackevals() const {
 
 void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
+}
+
+double UCTNode::get_sum_b() const {
+    return m_sum_b;
+}
+
+double UCTNode::get_sum_w() const {
+    return m_sum_w;
+}
+
+float UCTNode::get_endstate_sum() const {
+    if (m_visits < 1)
+      return 0.0f;
+    return (m_sum_b - m_sum_w) / m_visits;
+}
+
+void UCTNode::accumulate_sum(float black, float white) {
+    atomic_add(m_sum_b, double(black));
+    atomic_add(m_sum_w, double(white));
 }
 
 UCTNode* UCTNode::uct_select_child(int color, bool is_root) {

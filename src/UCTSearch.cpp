@@ -245,18 +245,21 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     if (node->expandable()) {
         if (currstate.get_passes() >= 2) {
             auto score = currstate.final_score();
-            result = SearchResult::from_score(score);
+            auto sum_b = currstate.board.calc_reach_color(FastBoard::BLACK);
+            auto sum_w = currstate.board.calc_reach_color(FastBoard::WHITE);
+            result = SearchResult::from_score(score, sum_b, sum_w);
         } else {
-            float eval;
+            float eval, es_sum_b, es_sum_w;
             const auto had_children = node->has_children();
 
             // Careful: create_children() can throw a NetworkHaltException when
             // another thread requests draining the search.
             const auto success =
                 node->create_children(m_network, m_nodes, currstate, eval,
+                                      es_sum_b, es_sum_w,
                                       get_min_psa_ratio());
             if (!had_children && success) {
-                result = SearchResult::from_eval(eval);
+                result = SearchResult::from_eval(eval, es_sum_b, es_sum_w);
                 new_node = true;
             }
         }
@@ -276,7 +279,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 
     // New node was updated in create_children.
     if (result.valid() && !new_node) {
-        node->update(result.eval());
+        node->update(result.eval(), result.sum_b(), result.sum_w());
     }
 
     return result;
@@ -312,12 +315,13 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         tmpstate.play_move(node->get_move());
         auto pv = move + " " + get_pv(tmpstate, *node);
 
-        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (S: %5.2f%) PV: %s\n",
             move.c_str(),
             node->get_visits(),
             node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
             std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
             node->get_policy() * 100.0f,
+            node->get_endstate_sum(),
             pv.c_str());
     }
     tree_stats(parent);

@@ -112,6 +112,8 @@ public:
     unsigned short get_liberties(int x, int y) const;
     unsigned short get_liberties(int vertex) const;
 
+    int calc_reach_color(int color) const;
+
 protected:
     /*
         bit masks to detect eyes on neighbors
@@ -136,8 +138,6 @@ protected:
 
     int m_boardsize;
     int m_sidevertices;
-
-    int calc_reach_color(int color) const;
 
     int count_neighbours(const int color, const int i) const;
     void merge_strings(const int ip, const int aip);
