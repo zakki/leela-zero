@@ -323,6 +323,7 @@ void GTP::initialize(std::unique_ptr<Network>&& net) {
 void GTP::setup_default_parameters() {
     cfg_gtp_mode = false;
     cfg_acceleration_endgame = false;
+    cfg_aux_bias_ratio = 1;
     cfg_allow_pondering = true;
 
     // we will re-calculate this on Leela.cpp
@@ -592,6 +593,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
     } else if (command.find("clear_board") == 0) {
         Training::clear_training();
         game.reset_game();
+        recalibrate_aux_bias_ratio(game);
         search = std::make_unique<UCTSearch>(game, *s_network);
         assert(UCTNodePointer::get_tree_size() == 0);
         gtp_printf(id, "");
