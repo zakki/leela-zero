@@ -178,7 +178,7 @@ class TFProcess:
         planes = tf.reshape(planes, (batch_size, INPUT_PLANES, BOARD_SIZE*BOARD_SIZE))
         probs = tf.reshape(probs, (batch_size, BOARD_SIZE*BOARD_SIZE + 1))
         winner = tf.reshape(winner, (batch_size, 1))
-        endstate = tf.reshape(endstate, (batch_size, 2, 19*19))
+        endstate = tf.reshape(endstate, (batch_size, 2, BOARD_SIZE*BOARD_SIZE))
 
         if gpus_num is None:
             gpus_num = self.gpus_num
@@ -205,6 +205,7 @@ class TFProcess:
         tower_loss = []
         tower_policy_loss = []
         tower_mse_loss = []
+        tower_es_loss = []
         tower_reg_term = []
         tower_y_conv = []
         with tf.variable_scope("fp32_storage",
@@ -213,7 +214,7 @@ class TFProcess:
             for i in range(gpus_num):
                 with tf.device("/gpu:%d" % i):
                     with tf.name_scope("tower_%d" % i):
-                        loss, policy_loss, mse_loss, reg_term, y_conv = self.tower_loss(
+                        loss, policy_loss, mse_loss, es_loss, reg_term, y_conv = self.tower_loss(
                             self.sx[i], self.sy_[i], self.sz_[i], self.sw_[i])
 
                         # Reset batchnorm key to 0.
@@ -227,6 +228,7 @@ class TFProcess:
                         tower_loss.append(loss)
                         tower_policy_loss.append(policy_loss)
                         tower_mse_loss.append(mse_loss)
+                        tower_es_loss.append(es_loss)
                         tower_reg_term.append(reg_term)
                         tower_y_conv.append(y_conv)
 
@@ -234,6 +236,7 @@ class TFProcess:
         self.loss = tf.reduce_mean(tower_loss)
         self.policy_loss = tf.reduce_mean(tower_policy_loss)
         self.mse_loss = tf.reduce_mean(tower_mse_loss)
+        self.es_loss = tf.reduce_mean(tower_es_loss)
         self.reg_term = tf.reduce_mean(tower_reg_term)
         self.y_conv = tf.concat(tower_y_conv, axis=0)
         self.mean_grads = self.average_gradients(tower_grads)
@@ -338,10 +341,8 @@ class TFProcess:
         policy_loss = tf.reduce_mean(cross_entropy)
 
         # Loss on value head
-        mse_loss = \
-            tf.reduce_mean(tf.squared_difference(z_, z_conv)) \
-            + 19*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(w_, (-1, 19*19*2)), logits=w_conv))
-
+        mse_loss = tf.reduce_mean(tf.squared_difference(z_, z_conv))
+        es_loss = BOARD_SIZE*tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(w_, (-1, BOARD_SIZE*BOARD_SIZE*2)), logits=w_conv))
 
         # Regularizer
         reg_variables = tf.get_collection(tf.GraphKeys.WEIGHTS)
@@ -350,9 +351,9 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = 1.0 * policy_loss + 0.1 * mse_loss + reg_term
+        loss = 1.0 * policy_loss + 1.0 * mse_loss + 0.1 * es_loss + reg_term
 
-        return loss, policy_loss, mse_loss, reg_term, y_conv
+        return loss, policy_loss, mse_loss, es_loss, reg_term, y_conv
 
     def assign(self, var, values):
         try:
@@ -411,7 +412,7 @@ class TFProcess:
     def measure_loss(self, batch, training=False):
         # Measure loss over one batch. If training is true, also
         # accumulate the gradient and increment the global step.
-        ops = [self.policy_loss, self.mse_loss, self.reg_term, self.accuracy ]
+        ops = [self.policy_loss, self.mse_loss, self.es_loss, self.reg_term, self.accuracy ]
         if training:
             ops += [self.grad_op, self.step_op],
         r = self.session.run(ops, feed_dict={self.training: training,
@@ -420,8 +421,8 @@ class TFProcess:
                            self.winner: batch[2],
                            self.endstate: batch[3]})
         # Google's paper scales mse by 1/4 to a [0,1] range, so we do the same here
-        return {'policy': r[0], 'mse': r[1]/4., 'reg': r[2],
-                'accuracy': r[3], 'total': r[0]+r[1]+r[2] }
+        return {'policy': r[0], 'mse': r[1]/4., 'es': r[2], 'reg': r[3],
+                'accuracy': r[4], 'total': r[0]+r[1]+r[2]+r[3] }
 
     def process(self, train_data, test_data):
         info_steps=1000
@@ -442,11 +443,12 @@ class TFProcess:
 
             if steps % info_steps == 0:
                 speed = info_steps * self.batch_size / timer.elapsed()
-                print("step {}, policy={:g} mse={:g} reg={:g} total={:g} ({:g} pos/s)".format(
-                    steps, stats.mean('policy'), stats.mean('mse'), stats.mean('reg'),
+                print("step {}, policy={:g} mse={:g} es={:g} reg={:g} total={:g} ({:g} pos/s)".format(
+                    steps, stats.mean('policy'), stats.mean('mse'), stats.mean('es'), stats.mean('reg'),
                     stats.mean('total'), speed))
                 summaries = stats.summaries({'Policy Loss': 'policy',
-                                             'MSE Loss': 'mse'})
+                                             'MSE Loss': 'mse',
+                                             'Endstate Loss': 'es'})
                 self.train_writer.add_summary(
                     tf.Summary(value=summaries), steps)
                 stats.clear()
@@ -460,12 +462,14 @@ class TFProcess:
                     test_stats.add(losses)
                 summaries = test_stats.summaries({'Policy Loss': 'policy',
                                                   'MSE Loss': 'mse',
+                                                  'Endstate Loss': 'es',
                                                   'Accuracy': 'accuracy'})
                 self.test_writer.add_summary(tf.Summary(value=summaries), steps)
-                print("step {}, policy={:g} training accuracy={:g}%, mse={:g}".\
+                print("step {}, policy={:g} training accuracy={:g}%, mse={:g}, es={:g}".\
                     format(steps, test_stats.mean('policy'),
                         test_stats.mean('accuracy')*100.0,
-                        test_stats.mean('mse')))
+                        test_stats.mean('mse'),
+                        test_stats.mean('es')))
 
                 # Write out current model and checkpoint
                 path = os.path.join(os.getcwd(), "leelaz-model")
@@ -651,9 +655,9 @@ class TFProcess:
                                    input_channels=self.residual_filters,
                                    output_channels=2,
                                    name="endstate_head")
-        h_conv_st_flat = tf.reshape(conv_st, [-1, 2 * 19 * 19])
-        W_fc4 = weight_variable("w_fc_4", [2 * 19 * 19, (19 * 19) * 2], self.model_dtype)
-        b_fc4 = bias_variable("b_fc_4", [(19 * 19) * 2], self.model_dtype)
+        h_conv_st_flat = tf.reshape(conv_st, [-1, 2 * BOARD_SIZE * BOARD_SIZE])
+        W_fc4 = weight_variable("w_fc_4", [2 * BOARD_SIZE * BOARD_SIZE, (BOARD_SIZE * BOARD_SIZE) * 2], self.model_dtype)
+        b_fc4 = bias_variable("b_fc_4", [(BOARD_SIZE * BOARD_SIZE) * 2], self.model_dtype)
         self.add_weights(W_fc4)
         self.add_weights(b_fc4)
         h_fc4 = tf.add(tf.matmul(h_conv_st_flat, W_fc4), b_fc4)
@@ -709,7 +713,7 @@ class TFProcess:
                     [self.loss, self.update_ops],
                     feed_dict={self.training: True,
                                self.planes: batch[0], self.probs: batch[1],
-                               self.winner: batch[2]})
+                               self.winner: batch[2], self.endstate: batch[3]})
 
         self.save_leelaz_weights(swa_path)
         # restore the saved network.
@@ -726,8 +730,19 @@ def gen_block(size, f_in, f_out):
 
 class TFProcessTest(unittest.TestCase):
     def test_can_replace_weights(self):
-        tfprocess = TFProcess(6, 128)
+        tfprocess = TFProcess(10, 128)
         tfprocess.init(batch_size=1)
+
+        steps = 0
+        # Write out current model and checkpoint
+        path = os.path.join(os.getcwd(), "leelaz-model")
+        save_path = tfprocess.saver.save(tfprocess.session, path,
+                                    global_step=steps)
+        print("Model saved in file: {}".format(save_path))
+        leela_path = path + "-" + str(steps) + ".txt"
+        tfprocess.save_leelaz_weights(leela_path)
+        print("Leela weights saved to {}".format(leela_path))
+
         # use known data to test replace_weights() works.
         data = gen_block(3, INPUT_PLANES, tfprocess.residual_filters) # input conv
         for _ in range(tfprocess.residual_blocks):
@@ -745,6 +760,10 @@ class TFProcessTest(unittest.TestCase):
         data.append([0.7] * 256)
         data.append([0.8] * 256)
         data.append([0.9] * 1)
+        # es
+        data.extend(gen_block(1, tfprocess.residual_filters, 2))
+        data.append([1.1] * BOARD_SIZE*BOARD_SIZE * 2)
+        data.append([1.2] * BOARD_SIZE*BOARD_SIZE * 2)
         tfprocess.replace_weights(data)
 
 if __name__ == '__main__':

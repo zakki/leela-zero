@@ -109,8 +109,8 @@ class ChunkParser:
                 for p in range(16) for vertex in range(BOARD_SIZE * BOARD_SIZE)])
                     for sym in range(8)]
         self.board_reflection_table = [
-            np.array([remap_vertex(vertex, sym) + p * 361
-                for p in range(2) for vertex in range(361)])
+            np.array([remap_vertex(vertex, sym) + p * BOARD_SIZE * BOARD_SIZE
+                for p in range(2) for vertex in range(BOARD_SIZE * BOARD_SIZE)])
                     for sym in range(8)]
 
         # Convert both to np.array.
@@ -234,12 +234,16 @@ class ChunkParser:
         for endstate in range(19, 21):
             # first 168 first bits are 42 hex chars, encoded MSB
             #print(text_item[endstate])
-            hex_string = text_item[endstate][0:90]
+            if BOARD_SIZE == 19:
+                num_hex = 90
+            elif BOARD_SIZE == 9:
+                num_hex = 20
+            hex_string = text_item[endstate][0:num_hex]
             array = np.unpackbits(np.frombuffer(
                 bytearray.fromhex(hex_string), dtype=np.uint8))
             # Remaining bit that didn't fit. Encoded LSB so
             # it needs to be specially handled.
-            last_digit = text_item[endstate][90]
+            last_digit = text_item[endstate][num_hex]
             if not (last_digit == "0" or last_digit == "1"):
                 return False, None
             # Apply symmetry and append
@@ -328,7 +332,7 @@ class ChunkParser:
         winner = struct.pack('f', winner)
 
         endstates = np.unpackbits(np.frombuffer(endstates, dtype=np.uint8))
-        endstates = endstates[0:722]
+        endstates = endstates[0:BOARD_SIZE * BOARD_SIZE * 2]
 
         return (planes, probs, winner, endstates)
 
