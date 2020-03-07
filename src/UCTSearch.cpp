@@ -544,7 +544,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 myprintf("Passing loses :-(\n");
                 // Find a valid non-pass move.
                 UCTNode * nopass = m_root->get_nopass_child(m_rootstate);
-                if (nopass != nullptr) {
+                if (nopass != nullptr && !m_acceleration_mode) {
                     myprintf("Avoiding pass because it loses.\n");
                     bestmove = nopass->get_move();
                     if (nopass->first_visit()) {
