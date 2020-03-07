@@ -309,6 +309,13 @@ float FastBoard::area_score(float komi) const {
     return black - white - komi;
 }
 
+int FastBoard::neutral_count() const {
+    auto boardsize = get_boardsize();
+    auto white = calc_reach_color(WHITE);
+    auto black = calc_reach_color(BLACK);
+    return boardsize * boardsize - white - black;
+}
+
 void FastBoard::display_board(int lastmove) {
     int boardsize = get_boardsize();
 

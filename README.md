@@ -1,3 +1,19 @@
+# 'Endstate' branch
+
+This is a fork of Leela Zero with the 'endstate' head.  The 'stock' Leela Zero uses the value and policy nets, while this also
+predicts how the game ends.  To do so, there are some changes:
+
+* Additional 'endstate' head : The 'endstate' is how the game ended - that information is also stored on the training data.
+* Acceleration mode : To predict the endstate, we can't just resign when we find the game hopeless - we have to play it to the end.  Hence,
+  once we hit the resignation threshold, we reduce the playouts to 1 instead of resigning.
+* Using the 'endstate' information as the auxillary policy - see Network.cpp for details on how it uses the auxilary policy
+
+The main goal of this branch is to play reasonable handicap games (and to some extent, play games with komi)
+
+Below is the original README...
+
+-----------------------------------------------------------------------
+
 [![Linux Build Status](https://travis-ci.org/leela-zero/leela-zero.svg?branch=next)](https://travis-ci.org/leela-zero/leela-zero)
 [![Windows Build Status](https://ci.appveyor.com/api/projects/status/dcvp31x1e0yavrtf/branch/next?svg=true)](https://ci.appveyor.com/project/gcp/leela-zero-8arv1/branch/next)
 

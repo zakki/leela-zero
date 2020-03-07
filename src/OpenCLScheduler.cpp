@@ -260,13 +260,21 @@ void OpenCLScheduler<net_t>::push_weights(
     // Output head convolutions
     push_convolve(1, outputs, Network::OUTPUTS_POLICY, weights->m_conv_pol_w);
     push_convolve(1, outputs, Network::OUTPUTS_VALUE, weights->m_conv_val_w);
+
+    if (weights->m_conv_es_w.size() > 0) {
+        push_convolve(1, outputs, Network::OUTPUTS_POLICY, weights->m_conv_es_w);
+    } else {
+        // empty endstate net
+        push_convolve(1, outputs, 0, weights->m_conv_es_w);
+    }
 }
 
 template <typename net_t>
 void OpenCLScheduler<net_t>::forward(const std::vector<float>& input,
                                      std::vector<float>& output_pol,
-                                     std::vector<float>& output_val) {
-    auto entry = std::make_shared<ForwardQueueEntry>(input, output_pol, output_val);
+                                     std::vector<float>& output_val,
+                                     std::vector<float>& output_es) {
+    auto entry = std::make_shared<ForwardQueueEntry>(input, output_pol, output_val, output_es);
     std::unique_lock<std::mutex> lk(entry->mutex);
     {
         std::unique_lock<std::mutex> lk(m_mutex);
@@ -361,6 +369,7 @@ void OpenCLScheduler<net_t>::batch_worker(const size_t gnum) {
     auto batch_input = std::vector<float>();
     auto batch_output_pol = std::vector<float>();
     auto batch_output_val = std::vector<float>();
+    auto batch_output_es = std::vector<float>();
 
     while (true) {
         auto inputs = pickup_task();
@@ -382,6 +391,7 @@ void OpenCLScheduler<net_t>::batch_worker(const size_t gnum) {
         batch_input.resize(in_size * count);
         batch_output_pol.resize(out_pol_size * count);
         batch_output_val.resize(out_val_size * count);
+        batch_output_es.resize(out_pol_size * count);
 
         auto index = size_t{0};
         for (auto& x : inputs) {
@@ -392,7 +402,9 @@ void OpenCLScheduler<net_t>::batch_worker(const size_t gnum) {
 
         // run the NN evaluation
         m_networks[gnum]->forward(
-            batch_input, batch_output_pol, batch_output_val, context, count);
+            batch_input, batch_output_pol, batch_output_val, batch_output_es,
+            context, count
+        );
 
         // Get output and copy back
         index = 0;
@@ -403,6 +415,9 @@ void OpenCLScheduler<net_t>::batch_worker(const size_t gnum) {
             std::copy(begin(batch_output_val) + out_val_size * index,
                       begin(batch_output_val) + out_val_size * (index + 1),
                       begin(x->out_v));
+            std::copy(begin(batch_output_es) + out_pol_size * index,
+                      begin(batch_output_es) + out_pol_size * (index + 1),
+                      begin(x->out_e));
             x->cv.notify_all();
             index++;
         }

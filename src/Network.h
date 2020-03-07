@@ -119,6 +119,8 @@ public:
 
     // Flag the network to be open for business.
     virtual void resume_evals();
+
+    void recalibrate_aux_bias_ratio(GameState & state);
 private:
     std::pair<int, int> load_v1_network(std::istream& wtfile);
     std::pair<int, int> load_network_file(const std::string& filename);
@@ -145,6 +147,8 @@ private:
                                std::vector<float>& M, const int C, const int K);
     Netresult get_output_internal(const GameState* const state,
                                   const int symmetry, bool selfcheck = false);
+    std::tuple<std::vector<float>,float,std::vector<float>>
+              get_output_raw(std::vector<float> input_data, bool selfcheck = false);
     static void fill_input_plane_pair(const FullBoard& board,
                                       std::vector<float>::iterator black,
                                       std::vector<float>::iterator white,
@@ -196,6 +200,20 @@ private:
 
     std::array<float, VALUE_LAYER> m_ip2_val_w;
     std::array<float, 1> m_ip2_val_b;
+
+    // Endstate head
+    std::array<float, OUTPUTS_POLICY> m_bn_es_w1;
+    std::array<float, OUTPUTS_POLICY> m_bn_es_w2;
+
+    std::array<float, OUTPUTS_POLICY
+                      * NUM_INTERSECTIONS 
+                      * NUM_INTERSECTIONS * 2> m_ip_es_w;
+    std::array<float, NUM_INTERSECTIONS * 2> m_ip_es_b;
+
     bool m_value_head_not_stm;
+    bool m_has_es_head = false;
+
+    float m_komi = 0.0;
+    float m_winrate_weight = 1.0;
 };
 #endif

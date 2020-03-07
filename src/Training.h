@@ -83,6 +83,8 @@ public:
     static void pop_training();
     static void dump_training(int winner_color,
                               const std::string& out_filename);
+    static void dump_training(int winner_color,
+                              OutputChunker& outchunker);
     static void dump_debug(const std::string& out_filename);
     static void record(Network & network, GameState& state, UCTNode& node);
 
@@ -97,8 +99,6 @@ private:
     static void process_game(GameState& state, size_t& train_pos, int who_won,
                              const std::vector<int>& tree_moves,
                              OutputChunker& outchunker);
-    static void dump_training(int winner_color,
-                              OutputChunker& outchunker);
     static void dump_debug(OutputChunker& outchunker);
     static void save_training(std::ofstream& out);
     static void load_training(std::ifstream& in);

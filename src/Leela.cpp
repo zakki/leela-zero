@@ -138,6 +138,7 @@ static void parse_commandline(int argc, char *argv[]) {
     gen_desc.add_options()
         ("help,h", "Show commandline options.")
         ("gtp,g", "Enable GTP mode.")
+        ("acceleration-endgame", "Acceleration mode endgame.  Instead of resigning, reduce playout to minimum")
         ("threads,t", po::value<unsigned int>()->default_value(0),
                       "Number of threads to use. Select 0 to let leela-zero pick a reasonable default.")
         ("playouts,p", po::value<int>(),
@@ -308,6 +309,10 @@ static void parse_commandline(int argc, char *argv[]) {
 
     if (vm.count("gtp")) {
         cfg_gtp_mode = true;
+    }
+
+    if (vm.count("acceleration-endgame")) {
+        cfg_acceleration_endgame = true;
     }
 
 #ifdef USE_OPENCL
