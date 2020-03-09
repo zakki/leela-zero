@@ -910,7 +910,7 @@ Network::Netresult Network::get_output_internal(
     // recover blacks_move : see gather_features()
     const auto input_data = gather_features(state, symmetry);
     const auto to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
-    auto blacks_move = *to_move_it;
+    const auto blacks_move = state->get_to_move() == FastBoard::BLACK;
 
     std::tie(outputs, winrate_out, endstate) = get_output_raw(input_data, selfcheck);
 
@@ -1367,7 +1367,7 @@ void Network::recalibrate_aux_bias_ratio(GameState & state) {
     // recover blacks_move : see gather_features()
     const auto input_data = gather_features(&state, 0);
     const auto to_move_it = begin(input_data) + 2 * INPUT_MOVES * NUM_INTERSECTIONS;
-    auto blacks_move = *to_move_it;
+    const auto blacks_move = state.get_to_move() == FastBoard::BLACK;
 
     std::tie(outputs, winrate_out, endstate) = get_output_raw(input_data);
 
