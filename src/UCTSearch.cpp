@@ -573,6 +573,20 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                     myprintf("No seemingly better alternative to passing.\n");
                 }
             }
+        } else if (m_acceleration_mode && m_rootstate.get_to_move() == m_acceleration_color) {
+            UCTNode * nopass = m_root->get_nopass_child(m_rootstate);
+            if (nopass != nullptr) {
+                myprintf("Preferring not to pass at acceleration mode.\n");
+                bestmove = nopass->get_move();
+                if (nopass->first_visit()) {
+                    besteval = 1.0f;
+                } else {
+                    besteval = nopass->get_raw_eval(color);
+                }
+            } else {
+                myprintf("Pass is the only acceptable move at acceleration mode.\n");
+                bestmove = FastBoard::PASS;
+            }
         } else if (m_rootstate.get_last_move() == FastBoard::PASS) {
             // Opponents last move was passing.
             // We didn't consider passing. Should we have and
@@ -616,6 +630,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 myprintf("Eval (%.2f%%) looks bad. Enter acceleration mode\n",
                          100.0f * besteval);
                 m_acceleration_mode = true;
+                m_acceleration_color = color;
             }
         }
 
@@ -773,7 +788,7 @@ bool UCTSearch::have_alternate_moves(int elapsed_centis, int time_for_move) {
 }
 
 bool UCTSearch::stop_thinking(int elapsed_centis, int time_for_move) const {
-    return (m_playouts != 0 && m_acceleration_mode)
+    return (m_playouts != 0 && m_acceleration_mode && m_rootstate.get_to_move() == m_acceleration_color)
            || m_playouts >= m_maxplayouts
            || m_root->get_visits() >= m_maxvisits
            || elapsed_centis >= time_for_move;

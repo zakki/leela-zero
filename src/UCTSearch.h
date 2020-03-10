@@ -150,6 +150,7 @@ private:
     int m_maxvisits;
     std::string m_think_output;
     bool m_acceleration_mode = false;
+    int m_acceleration_color;
     bool m_passlock = true;
 
     std::list<Utils::ThreadGroup> m_delete_futures;
