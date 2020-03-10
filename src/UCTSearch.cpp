@@ -501,7 +501,8 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // do we want to fiddle with the best move because of the rule set?
     if (passflag & UCTSearch::NOPASS) {
         // were we going to pass?
-        if (bestmove == FastBoard::PASS) {
+        if (bestmove == FastBoard::PASS
+            || (m_acceleration_mode && m_rootstate.get_to_move() == m_acceleration_color)) {
             UCTNode * nopass = m_root->get_nopass_child(m_rootstate);
 
             if (nopass != nullptr) {
@@ -514,6 +515,7 @@ int UCTSearch::get_best_move(passflag_t passflag) {
                 }
             } else {
                 myprintf("Pass is the only acceptable move.\n");
+                bestmove = FastBoard::PASS;
             }
         }
     } else if (!cfg_dumbpass) {

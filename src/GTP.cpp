@@ -1376,8 +1376,20 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                 int move = search->think(game.get_to_move(), UCTSearch::NORMAL);
                 game.play_move(move);
                 game.display_state();
+                execute(game, "endstate_map");
                 count++;
             } while (game.get_passes() < 2 && !game.has_resigned());
+
+            int cleanup_pass = 0;
+            do {
+              auto color = game.get_to_move() == FastBoard::BLACK ? "black" : "white";
+              execute(game, std::string("kgs-genmove_cleanup ") + color);
+              if (game.get_last_move() == FastBoard::PASS) {
+                  cleanup_pass++;
+              } else {
+                  cleanup_pass = 0;
+              }
+            } while (cleanup_pass < 2);
 
             execute(game, "printsgf " + filename + ".sgf");
             execute(game, "dump_debug " + filename + ".debug.txt");
