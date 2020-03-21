@@ -9,7 +9,11 @@ with open(sys.argv[1], 'r') as f:
         if e == 0:
             #Version
             print("Version", line.strip())
-            if line != '1\n':
+            if line == '1\n':
+                has_es = False
+            elif line == '4\n':
+                has_es = True
+            else:
                 raise ValueError("Unknown version {}".format(line.strip()))
         else:
             weights.append(list(map(float, line.split(' '))))
@@ -18,6 +22,8 @@ with open(sys.argv[1], 'r') as f:
             print("Channels", channels)
 
     blocks = e - (4 + 14)
+    if has_es:
+        blocks -= 7
     if blocks % 8 != 0:
         raise ValueError("Inconsistent number of weights in the file")
     blocks //= 8

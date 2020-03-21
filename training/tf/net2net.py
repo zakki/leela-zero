@@ -46,7 +46,11 @@ def read_net(filename):
         for e, line in enumerate(f):
             if e == 0:
                 print("Version", line.strip())
-                if line != '1\n':
+                if line == '1\n':
+                    has_es = False
+                elif line == '4\n':
+                    has_es = True
+                else:
                     raise ValueError("Unknown version {}".format(line.strip()))
             else:
                 weights.append(list(map(float, line.split(' '))))
@@ -54,12 +58,14 @@ def read_net(filename):
                 channels = len(line.split(' '))
                 print("Channels", channels)
         blocks = e - (4 + 14)
+        if has_es:
+            blocks -= 7
         if blocks % 8 != 0:
             raise ValueError("Inconsistent number of weights in the file")
         blocks //= 8
         print("Blocks", blocks)
 
-        return blocks, channels, weights
+        return blocks, channels, weights, has_es
 
 def conv_bn_wider(weights, next_weights, inputs, channels,
                   new_channels, noise_std=0, last_block=False,
@@ -170,7 +176,7 @@ if __name__ == "__main__":
 
     base, ext = os.path.splitext(net_filename)
     output_filename = base + "_net2net" + ext
-    blocks, channels, weights = read_net(net_filename)
+    blocks, channels, weights, has_es = read_net(net_filename)
 
     if new_blocks < 0:
         raise ValueError("Blocks must be non-negative")
@@ -192,8 +198,16 @@ if __name__ == "__main__":
         w_convs.append(weights[4 + b*4: 4 + (b+1)*4])
 
     i = ((b+1)*4) + 4
-    w_pol = weights[i:i+6]
-    w_val = weights[i+6:]
+    if has_es:
+        w_pol = weights[i:i+6]
+        w_val = weights[i+6:i+14]
+        w_es = weights[i+14:]
+        print("pol[0] {}".format(len(w_pol[0])))
+        print("val[0] {}".format(len(w_val[0])))
+        print("es[0] {}".format(len(w_es[0])))
+    else:
+        w_pol = weights[i:i+6]
+        w_val = weights[i+6:]
 
     if new_blocks > 0:
         #New blocks must have zero output due to the residual connection
@@ -211,7 +225,10 @@ if __name__ == "__main__":
     out_file = open(output_filename, 'w')
 
     #Version
-    out_file.write('1\n')
+    if has_es:
+        out_file.write('4\n')
+    else:
+        out_file.write('1\n')
 
     #Making widening choice deterministic allows residual connection to be left
     #as identity map. If the choice is not deterministic then the output of the
@@ -250,14 +267,16 @@ if __name__ == "__main__":
         write_layer(w_wider, out_file)
 
     #The last block is special case because of policy and value heads
-    w_wider, w_next = conv_bn_wider(w_convs[-1], [w_pol[0], w_val[0]], channels + new_channels,
+    w_wider, w_next = conv_bn_wider(w_convs[-1], [w_pol[0], w_val[0], w_es[0]], channels + new_channels,
             channels, new_channels, noise_std, last_block=True, rand=rand, dir_alpha=dir_alpha, verify=verify)
     w_pol[0] = w_next[0]
     w_val[0] = w_next[1]
+    w_es[0] = w_es[1]
 
     write_layer(w_wider, out_file)
 
     write_layer(w_pol, out_file)
     write_layer(w_val, out_file)
+    write_layer(w_es, out_file)
 
     out_file.close()
