@@ -31,7 +31,7 @@ import sys
 import threading
 import time
 import unittest
-import lzrayk
+import lzrayk2
 from tfprocess import INPUT_PLANES, BOARD_SIZE
 
 # 16 planes, 1 side to move (komi), 1 x 362 probs, 1 winner, 1 my endboard, 1 opponent endboard = 21 lines
@@ -320,7 +320,7 @@ class ChunkParser:
         assert len(planes) == (18 * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         planes.resize(INPUT_PLANES * BOARD_SIZE * BOARD_SIZE)
-        lzrayk.collect_features(planes, stm)
+        lzrayk2.collect_features(planes, stm)
         assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE), len(planes)
 
         # Flattern all planes to a single byte string

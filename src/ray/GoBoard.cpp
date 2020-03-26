@@ -2132,8 +2132,6 @@ WritePlanes2(
     OUTPUT({ int l = GetSize(game, p); OUTPUT_FEATURE(data_features, l >= (i + 1) * 2); });
 
   rating_context_t ctx(game);
-  bool alive[MAX_STRING];
-  bool dead[MAX_STRING];
 
   for (int side = 0; side < 2; side++) {
     const auto col = side == 0 ? color : opp;
@@ -2191,28 +2189,23 @@ WritePlanes2(
       }
     }
     ptr += pure_board_max * 4;
-
-    for (int i = 0; i < MAX_STRING; i++) {
-      alive[i] = ctx.is_alive(i);
-      dead[i] = ctx.is_dead(i);
-    }
-    OUTPUT({
-      if (game->board[p] != S_EMPTY) {
-        int id = string_id[p];
-        OUTPUT_FEATURE(data_features, alive[id]);
-      } else {
-        OUTPUT_FEATURE(data_features, false);
-      }
-    });
-    OUTPUT({
-      if (game->board[p] != S_EMPTY) {
-        int id = string_id[p];
-        OUTPUT_FEATURE(data_features, dead[id]);
-      } else {
-        OUTPUT_FEATURE(data_features, false);
-      }
-    });
   }
+
+  OUTPUT({
+    int l = min(x - board_start, board_end - x);
+    data_features[ptr++] = l / 9.0f;
+  });
+  OUTPUT({
+    int l = min(y - board_start, board_end - y);
+    data_features[ptr++] = l / 9.0f;
+  });
+
+  OUTPUT({
+    OUTPUT_FEATURE(data_features, IsLegal(game, p, color));
+  });
+  OUTPUT({
+    OUTPUT_FEATURE(data_features, IsLegal(game, p, opp));
+  });
 
   if (ptr != pure_board_max * num_features) {
     cerr << "Illegal state actual:" << ptr << " expect:" << pure_board_max * num_features << endl;
