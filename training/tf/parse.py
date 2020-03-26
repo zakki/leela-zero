@@ -136,12 +136,12 @@ def main():
     restore_prefix = args.restore or args.restorepref
 
     if not restore_prefix:
-        restore_files = glob.glob("leelaz-model-*.txt")
+        restore_files = glob.glob("leelaz-model-*.index")
         max = -1
         for f in restore_files:
             if "-swa-" in f:
                 continue
-            f = int(f[13:-4])
+            f = int(f[13:-6])
             if f > max:
                 max = f
         if max >= 0:
