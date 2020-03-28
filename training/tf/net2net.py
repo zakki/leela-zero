@@ -271,7 +271,7 @@ if __name__ == "__main__":
             channels, new_channels, noise_std, last_block=True, rand=rand, dir_alpha=dir_alpha, verify=verify)
     w_pol[0] = w_next[0]
     w_val[0] = w_next[1]
-    w_es[0] = w_es[1]
+    w_es[0] = w_next[2]
 
     write_layer(w_wider, out_file)
 
