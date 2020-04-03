@@ -151,12 +151,12 @@ class ChunkParser:
         # (19*19+1) float32 probabilities (1448 bytes)
         # 19*19*16 packed bit planes (722 bytes)
         # float32 side_to_move (4 bytes)
-        # uint8 is_winner (1 byte)
+        # float32 is_winner (4 bytes)
         # 19*19*2 packed bit endstate (1 byte)
         if BOARD_SIZE == 19:
-            self.v2_struct = struct.Struct('4s1448s722sfB91s')
+            self.v2_struct = struct.Struct('4s1448s722sff91s')
         elif BOARD_SIZE == 9:
-            self.v2_struct = struct.Struct('4s328s162sfB21s')
+            self.v2_struct = struct.Struct('4s328s162sff21s')
 
         # Struct used to return data from child workers.
         # float32 winner
@@ -226,9 +226,9 @@ class ChunkParser:
 
         # Load the game winner color.
         winner = float(text_item[18])
-        if not(winner == 1.0 or winner == -1.0):
+        if not(winner == 1.0 or winner == -1.0 or winner == 0.0):
             return False, None
-        winner = int((winner + 1) / 2)
+        winner = (winner + 1) / 2
 
         endstates = []
         for endstate in range(19, 21):
@@ -300,7 +300,7 @@ class ChunkParser:
                 float probs[19*18+1]
                 byte planes[19*19*16/8]
                 float to_move
-                byte winner
+                float winner
 
             packed tensor formats are
                 float32 winner
@@ -328,7 +328,7 @@ class ChunkParser:
         assert len(planes) == (INPUT_PLANES * BOARD_SIZE * BOARD_SIZE * 4), len(planes)
 
         winner = float(winner * 2 - 1)
-        assert winner == 1.0 or winner == -1.0, winner
+        assert winner == 1.0 or winner == -1.0 or winner == 0.0, winner
         winner = struct.pack('f', winner)
 
         endstates = np.unpackbits(np.frombuffer(endstates, dtype=np.uint8))
