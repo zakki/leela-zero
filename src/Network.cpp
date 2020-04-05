@@ -1072,7 +1072,7 @@ Network::Netresult Network::get_output_internal(
             result.endstate_sum_w += es_w;
             result.endstate[sym_idx] = es_b - es_w;
         }
-        if (state->get_movenum() == 0 && state->get_handicap() == 0) {
+        if (!cfg_noise && state->get_movenum() == 0 && state->get_handicap() == 0) {
             const auto y = sym_idx % BOARD_SIZE;
             const auto x = sym_idx / BOARD_SIZE;
             if (x < BOARD_SIZE / 2 || y < BOARD_SIZE / 2 || x > y) {

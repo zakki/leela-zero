@@ -1402,6 +1402,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
                 win = FastBoard::BLACK;
             } else {
                 float ftmp = game.final_score();
+                myprintf("scroe: %f\n", ftmp);
                 /* white wins */
                 if (ftmp < -0.1) {
                     win = FastBoard::WHITE;
