@@ -525,9 +525,9 @@ void init_global_objects() {
 
     Utils::create_z_table();
 
-    initialize_network();
-
     init_ray();
+
+    initialize_network();
 }
 
 void benchmark(GameState& game) {
