@@ -111,7 +111,7 @@ static constexpr auto TRAINED_UNIT_KOMI = 7.5f;
  * USE_TUNER: Expose some extra command line parameters that allow tuning the
  * search algorithm.
  */
-//#define USE_TUNER
+#define USE_TUNER
 
 static constexpr auto PROGRAM_NAME = "Leela Zero";
 static constexpr auto PROGRAM_VERSION = "0.17";

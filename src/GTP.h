@@ -129,6 +129,8 @@ extern AnalyzeTags cfg_analyze_tags;
 extern bool cfg_training_heuristics;
 extern bool in_small_search;
 extern float cfg_aux_bias_ratio;
+extern float cfg_winrate_weight;
+extern float cfg_komi_scale;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 

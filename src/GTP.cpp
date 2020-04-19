@@ -104,6 +104,8 @@ AnalyzeTags cfg_analyze_tags;
 bool cfg_training_heuristics;
 bool in_small_search;
 float cfg_aux_bias_ratio;
+float cfg_winrate_weight;
+float cfg_komi_scale;
 
 /* Parses tags for the lz-analyze GTP command and friends */
 AnalyzeTags::AnalyzeTags(std::istringstream& cmdstream, const GameState& game) {
@@ -369,6 +371,8 @@ void GTP::setup_default_parameters() {
     cfg_quiet = false;
     cfg_benchmark = false;
     cfg_training_heuristics = false;
+    cfg_winrate_weight = -1000.0f;
+    cfg_komi_scale = 1.0f;
 #ifdef USE_CPU_ONLY
     cfg_cpu_only = true;
 #else

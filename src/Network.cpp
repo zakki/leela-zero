@@ -352,6 +352,8 @@ std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
                 case 20:
                     m_komi = weights[0];
                     m_winrate_weight = weights[1];
+                    if (cfg_winrate_weight > -1000.0f)
+                      m_winrate_weight = cfg_winrate_weight;
                     break;
 
             }
@@ -915,6 +917,8 @@ Network::Netresult Network::get_output_internal(
     std::tie(outputs, winrate_out, endstate) = get_output_raw(input_data, selfcheck);
 
     auto score_bias = blacks_move ? -m_komi : m_komi;
+    if (cfg_komi_scale > 0)
+      score_bias = state->get_komi() * cfg_komi_scale * (blacks_move ? -1 : 1);
     auto confidence = 0.0f;
     if (m_has_es_head) {
         for (auto i=0; i<NUM_INTERSECTIONS; i++) {
