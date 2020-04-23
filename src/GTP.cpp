@@ -615,6 +615,7 @@ void GTP::execute(GameState & game, const std::string& xinput) {
         if (!cmdstream.fail()) {
             if (komi != old_komi) {
                 game.set_komi(komi);
+                s_network->nncache_clear();
             }
             gtp_printf(id, "");
         } else {
