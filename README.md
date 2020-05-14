@@ -1,3 +1,12 @@
+# '9x9-endstate' branch
+
+* For 9x9 game.
+* Ladder detection (by https://github.com/yssaya/leela-zero-ladder)
+* Various komi (by https://github.com/ihavnoid/leela-zero)
+* Additional input features.
+
+-----------------------------------------------------------------------
+
 # 'Endstate' branch
 
 This is a fork of Leela Zero with the 'endstate' head.  The 'stock' Leela Zero uses the value and policy nets, while this also
