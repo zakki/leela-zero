@@ -113,7 +113,7 @@ static constexpr auto TRAINED_UNIT_KOMI = 7.5f;
  */
 #define USE_TUNER
 
-static constexpr auto PROGRAM_NAME = "Leela Zero";
+static constexpr auto PROGRAM_NAME = "Leela Zero/rn-6.3.0";
 static constexpr auto PROGRAM_VERSION = "0.17";
 
 /*
