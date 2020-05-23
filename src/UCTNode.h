@@ -43,6 +43,10 @@
 #include "SMP.h"
 #include "UCTNodePointer.h"
 
+enum class NodeResult {
+    Win, Lose, Draw, Unknown
+};
+
 class UCTNode {
 public:
     // When we visit a node, add this amount of virtual losses
@@ -82,9 +86,10 @@ public:
     float get_raw_eval(int tomove, int virtual_loss = 0) const;
     float get_net_eval(int tomove) const;
     float get_endstate_sum() const;
+	NodeResult get_result() const;
     void virtual_loss();
     void virtual_loss_undo();
-    void update(float eval, float es_sum_b, float es_sum_w);
+    void update(float eval, float es_sum_b, float es_sum_w, NodeResult result);
     float get_eval_lcb(int color) const;
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
@@ -139,6 +144,7 @@ private:
     std::atomic<Status> m_status{ACTIVE};
     std::atomic<double> m_sum_b{0.0};
     std::atomic<double> m_sum_w{0.0};
+	std::atomic<NodeResult>  m_result{NodeResult::Unknown};
 
     // m_expand_state acts as the lock for m_children.
     // see manipulation methods below for possible state transition

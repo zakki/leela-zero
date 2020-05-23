@@ -234,6 +234,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
     const auto color = currstate.get_to_move();
     auto result = SearchResult{};
     auto new_node = false;
+    auto end_node = false;
 
     node->virtual_loss();
 
@@ -248,6 +249,7 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
             auto sum_b = currstate.board.calc_reach_color(FastBoard::BLACK);
             auto sum_w = currstate.board.calc_reach_color(FastBoard::WHITE);
             result = SearchResult::from_score(score, sum_b, sum_w);
+            end_node = true;
         } else {
             float eval, es_sum_b, es_sum_w;
             const auto had_children = node->has_children();
@@ -279,7 +281,62 @@ SearchResult UCTSearch::play_simulation(GameState & currstate,
 
     // New node was updated in create_children.
     if (result.valid() && !new_node) {
-        node->update(result.eval(), result.sum_b(), result.sum_w());
+        auto node_result = NodeResult::Unknown;
+        const auto eval = result.eval();
+        if (end_node) {
+            if (eval == 0.5f) {
+                node_result = NodeResult::Draw;
+                // myprintf("Draw\n");
+            } else if (color == FastBoard::BLACK) {
+                node_result = eval < 0.5 ? NodeResult::Win : NodeResult::Lose;
+                // myprintf("BLACK %d %f\n", node_result, eval);
+            } else {
+                node_result = eval < 0.5 ? NodeResult::Lose : NodeResult::Win;
+                // myprintf("WHITE %d %f\n", node_result, eval);
+            }
+        } else if (node->get_visits() > cfg_solver_visits) {
+            const auto eval = node->get_eval(color == FastBoard::BLACK ? FastBoard::WHITE : FastBoard::BLACK);
+            if (eval < cfg_solver_threshold) {
+                node_result = NodeResult::Lose;
+            } else if (eval > 1.0f - cfg_solver_threshold) {
+                node_result = NodeResult::Win;
+            }
+        } else {
+            bool has_win = false;
+            bool has_draw = false;
+            bool has_unknown = false;
+            for (auto& child : node->get_children()) {
+                auto eye = currstate.board.is_eye(color, child.get_move());
+                if (child.valid() && !eye) {
+                    const auto r = child.get_result();
+                    switch (r) {
+                    case NodeResult::Win:
+                        has_win = true;
+                        break;
+                    case NodeResult::Draw:
+                        has_draw = true;
+                        break;
+                    case NodeResult::Unknown:
+                        has_unknown = true;
+                        break;
+                    }
+                    if (has_win) break;
+                }
+            }
+            if (has_win) {
+                node_result = NodeResult::Lose;
+                // myprintf("has win\n");
+            } else if (!has_unknown) {
+                if (has_draw) {
+                    node_result = NodeResult::Draw;
+                    // myprintf("has draw\n");
+                } else {
+                    node_result = NodeResult::Win;
+                    // myprintf("all lose\n");
+                }
+            }
+        }
+        node->update(result.eval(), result.sum_b(), result.sum_w(), node_result);
     }
 
     return result;
@@ -669,6 +726,19 @@ std::string UCTSearch::get_pv(FastState & state, UCTNode& parent) {
     }
     auto best_move = best_child.get_move();
     auto res = state.move_to_text(best_move);
+    auto result = best_child.get_result();
+
+    switch (result) {
+    case NodeResult::Win:
+        res.append("(+)");
+        break;
+    case NodeResult::Draw:
+        res.append("(0)");
+        break;
+    case NodeResult::Lose:
+        res.append("(-)");
+        break;
+    }
 
     state.play_move(best_move);
 

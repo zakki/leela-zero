@@ -154,7 +154,7 @@ bool UCTNode::create_children(Network & network,
 
     link_nodelist(nodecount, nodelist, min_psa_ratio);
     // Increment visit and assign eval.
-    update(eval, es_sum_b, es_sum_w);
+    update(eval, es_sum_b, es_sum_w, NodeResult::Unknown);
     expand_done();
     return true;
 }
@@ -214,7 +214,7 @@ void UCTNode::virtual_loss_undo() {
     m_virtual_loss -= VIRTUAL_LOSS_COUNT;
 }
 
-void UCTNode::update(float eval, float es_sum_b, float es_sum_w) {
+void UCTNode::update(float eval, float es_sum_b, float es_sum_w, NodeResult result) {
     // Cache values to avoid race conditions.
     auto old_eval = static_cast<float>(m_blackevals);
     auto old_visits = static_cast<int>(m_visits);
@@ -226,6 +226,10 @@ void UCTNode::update(float eval, float es_sum_b, float es_sum_w) {
     // Welford's online algorithm for calculating variance.
     auto delta = old_delta * new_delta;
     atomic_add(m_squared_eval_diff, delta);
+    if (result != NodeResult::Unknown) {
+        auto expected = NodeResult::Unknown;
+        m_result.compare_exchange_strong(expected, result);
+    }
 }
 
 bool UCTNode::has_children() const {
@@ -275,6 +279,15 @@ float UCTNode::get_eval_lcb(int color) const {
 }
 
 float UCTNode::get_raw_eval(int tomove, int virtual_loss) const {
+    const auto result = get_result();
+    switch (result) {
+    case NodeResult::Win:
+        return 2.0f;
+    case NodeResult::Draw:
+        return 0.5f;
+    case NodeResult::Lose:
+        return -1.0f;
+    }
     auto visits = get_visits() + virtual_loss;
     assert(visits > 0);
     auto blackeval = get_blackevals();
@@ -322,6 +335,10 @@ float UCTNode::get_endstate_sum() const {
     if (m_visits < 1)
       return 0.0f;
     return (m_sum_b - m_sum_w) / m_visits;
+}
+
+NodeResult UCTNode::get_result() const {
+    return m_result;
 }
 
 void UCTNode::accumulate_sum(float black, float white) {

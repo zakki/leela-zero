@@ -162,3 +162,10 @@ int UCTNodePointer::get_move() const {
     if (is_inflated(v)) return read_ptr(v)->get_move();
     return read_vertex(v);
 }
+
+
+NodeResult UCTNodePointer::get_result() const {
+    auto v = m_data.load();
+    if (is_inflated(v)) return read_ptr(v)->get_result();
+    return NodeResult::Unknown;
+}

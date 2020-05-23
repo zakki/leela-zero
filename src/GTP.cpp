@@ -106,6 +106,8 @@ bool in_small_search;
 float cfg_aux_bias_ratio;
 float cfg_winrate_weight;
 float cfg_komi_scale;
+float cfg_solver_threshold;
+float cfg_solver_visits;
 
 /* Parses tags for the lz-analyze GTP command and friends */
 AnalyzeTags::AnalyzeTags(std::istringstream& cmdstream, const GameState& game) {
@@ -373,6 +375,8 @@ void GTP::setup_default_parameters() {
     cfg_training_heuristics = false;
     cfg_winrate_weight = -1000.0f;
     cfg_komi_scale = 1.0f;
+    cfg_solver_threshold = 0.05f;
+    cfg_solver_visits = 10;
 #ifdef USE_CPU_ONLY
     cfg_cpu_only = true;
 #else

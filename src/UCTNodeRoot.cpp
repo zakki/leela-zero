@@ -216,7 +216,7 @@ void UCTNode::prepare_root_node(Network & network, int color,
         es_sum_b = get_sum_b();
         es_sum_w = get_sum_w();
     } else {
-        update(root_eval, es_sum_b, es_sum_w);
+        update(root_eval, es_sum_b, es_sum_w, NodeResult::Unknown);
         root_eval = (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval);
     }
     Utils::myprintf("NN eval=%f\n", root_eval);
