@@ -47,6 +47,7 @@
 #include "GTP.h"
 #include "GameState.h"
 #include "Network.h"
+#include "Random.h"
 #include "Utils.h"
 
 using namespace Utils;
@@ -238,6 +239,14 @@ void UCTNode::set_policy(float policy) {
     m_policy = policy;
 }
 
+float UCTNode::get_regularized_policy() const {
+    return m_regularized_policy;
+}
+
+void UCTNode::set_regularized_policy(float regularized_policy) {
+    m_regularized_policy = regularized_policy;
+}
+
 float UCTNode::get_eval_variance(float default_var) const {
     return m_visits > 1 ? m_squared_eval_diff / (m_visits - 1) : default_var;
 }
@@ -297,8 +306,194 @@ void UCTNode::accumulate_eval(float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
+std::vector<double> UCTNode::get_regularized_policy(int color) {
+    // Count parentvisits manually to avoid issues with transpositions.
+    auto total_visited_policy = 0.0f;
+    auto parentvisits = size_t{0};
+    auto total_policy = 0.0;
+    auto active_moves = size_t{0};
+    for (const auto& child : m_children) {
+        if (child.valid()) {
+            parentvisits += child.get_visits();
+            active_moves++;
+            auto p = child.get_policy();
+            total_policy += p;
+            if (child.get_visits() > 0) {
+                total_visited_policy += p;
+            }
+        }
+    }
+
+    const auto fpu_reduction = cfg_fpu_reduction * std::sqrt(total_visited_policy);
+    const auto fpu_eval = get_raw_eval(color) - fpu_reduction;
+
+    const auto c = cfg_puct;
+    //const auto c = 100.0;
+    const auto lambda = c * (1 + std::sqrt(parentvisits)) / (active_moves + parentvisits);
+    auto alpha_min = std::numeric_limits<double>::lowest();
+    auto alpha_max = std::numeric_limits<double>::lowest();
+
+    std::vector<double> policy_list;
+    std::vector<double> value_list;
+
+    for (const auto& child : m_children) {
+        if (!child.valid()) {
+            policy_list.push_back(-1.0);
+            value_list.push_back(-1.0);
+            continue;
+        }
+
+        auto winrate = fpu_eval;
+        if (child.is_inflated() && child->m_expand_state.load() == ExpandState::EXPANDING) {
+            winrate = 0.0;
+        } else if (child.get_visits() > 0) {
+            winrate = child.get_eval(color);
+        }
+        const auto psa = (total_policy > 0 && total_policy < 1)
+            ? child.get_policy() / total_policy
+            : child.get_policy();
+        const auto v = winrate;
+
+        policy_list.push_back(psa);
+        value_list.push_back(v);
+
+        if (psa <= 0) {
+            continue;
+        }
+
+        const auto a = v + lambda * psa;
+        const auto b = v + lambda;
+        if (a > alpha_min)
+            alpha_min = a;
+        if (b > alpha_max)
+            alpha_max = b;
+    }
+    if (active_moves < 2) {
+        return policy_list;
+    }
+
+    const auto eps = 0.01;
+    auto sum_min = sum_regularized_policy(alpha_min, lambda, policy_list, value_list);
+    for (int i = 0; sum_min < 1 - eps / 2 && i < 100; i++) {
+        std::cerr << "??alpha_min #" << i << " " << sum_min << " " << std::endl;
+        alpha_min -= 0.01;
+        sum_min = sum_regularized_policy(alpha_min, lambda, policy_list, value_list);
+    }
+    auto sum_max = sum_regularized_policy(alpha_max, lambda, policy_list, value_list);
+    for (int i = 0; sum_max > 1 + eps / 2 && i < 100; i++) {
+        std::cerr << "??alpha_max #" << i << " " << sum_max << " " << std::endl;
+        alpha_max += 0.01;
+        sum_max = sum_regularized_policy(alpha_max, lambda, policy_list, value_list);
+    }
+
+    // std::cerr << "total: " << total_policy << " moves:" << active_moves
+    //           << " lambda:" << lambda
+    //           << " min: " << sum_min << " " << alpha_min
+    //           << " max: " << sum_max << " " << alpha_max << std::endl;
+
+    auto alpha = (alpha_min + alpha_max) / 2;
+    auto sum = sum_regularized_policy(alpha, lambda, policy_list, value_list);
+
+    if (std::abs(sum_min - 1.0) < eps) {
+        alpha = alpha_min;
+        sum = sum_min;
+    } else if (std::abs(sum_max - 1.0) < eps) {
+        alpha = alpha_max;
+        sum = sum_max;
+    } else {
+        for (auto i = 0; i < 1000; i++) {
+            double r = 0.5;
+            alpha = (1.0 - r) * alpha_min + r * alpha_max;
+            sum = sum_regularized_policy(alpha, lambda, policy_list, value_list);
+            if (std::abs(sum - 1.0) < eps)
+                break;
+            if ((i >= 20 && i % 10 == 0) || alpha_min > alpha_max || r < 0 || r > 1) {
+                std::cerr << "#" << i << " " << r << " "
+                          << "min: " << sum_min << " " << alpha_min << " "
+                          << "mid: " << sum << " " << alpha << " "
+                          << "max: " << sum_max << " " << alpha_max << std::endl;
+                if (alpha_min > alpha_max) {
+                    auto tmp = alpha_min;
+                    alpha_min = alpha_max;
+                    alpha_max = tmp;
+                    auto tmp2 = sum_min;
+                    sum_min = sum_max;
+                    sum_max = tmp2;
+                }
+            }
+            if (sum < 1) {
+                alpha_max = alpha;
+                sum_max = sum;
+            } else {
+                alpha_min = alpha;
+                sum_min = sum;
+            }
+        }
+    }
+
+    for (auto i = 0; i < policy_list.size(); i++) {
+        if (policy_list[i] < 0) continue;
+        auto p = lambda * policy_list[i] / (alpha - value_list[i]) / sum;
+        policy_list[i] = p;
+        if (m_children[i].is_inflated()) {
+            m_children[i]->set_regularized_policy(p);
+        }
+    }
+    return policy_list;
+}
+
+double UCTNode::sum_regularized_policy(double alpha, double lambda,
+                                     const std::vector<double>& policy_list, const std::vector<double>& value_list) {
+    auto sum = 0.0;
+    for (auto i = 0; i < policy_list.size(); i++) {
+        if (policy_list[i] <= 0) continue;
+        if (alpha <= value_list[i]) {
+            return 100.0;
+        }
+        sum += lambda * policy_list[i] / (alpha - value_list[i]);
+    }
+    return sum;
+}
+
 UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     wait_expanded();
+#if 1
+    auto policy = get_regularized_policy(color);
+    const auto policy_scale = 0x7fffffffu;
+    uint64_t sum_policy = 0;
+    auto active_moves = 0;
+    for (auto i = 0; i < policy.size(); i++) {
+        auto p = policy[i];
+        if (p < 0)
+            continue;
+        auto n = static_cast<uint32_t>(p * policy_scale) + 1;
+        sum_policy += n;
+        policy[i] = n;
+        active_moves++;
+    }
+
+    auto rnd0 = Random::get_Rng().randuint64(sum_policy);
+    auto rnd = rnd0;
+    for (auto i = 0; i < policy.size(); i++) {
+        auto p = policy[i];
+        if (p < 0)
+            continue;
+        if (rnd < p) {
+            auto best = &m_children[i];
+            best->inflate();
+            return best->get();
+        }
+        rnd -= p;
+    }
+
+    std::cerr << "unexpected state "
+      << rnd0 << "/" << sum_policy << "/" << active_moves << " "
+      << rnd << std::endl;
+
+    assert(best != nullptr);
+#else
+    auto policy = get_regularized_policy(color);
+#endif
 
     // Count parentvisits manually to avoid issues with transpositions.
     auto total_visited_policy = 0.0f;
@@ -321,7 +516,8 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
 
-    for (auto& child : m_children) {
+    for (auto i = 0; i < m_children.size(); i++) {
+        auto& child = m_children[i];
         if (!child.active()) {
             continue;
         }
@@ -334,7 +530,11 @@ UCTNode* UCTNode::uct_select_child(int color, bool is_root) {
         } else if (child.get_visits() > 0) {
             winrate = child.get_eval(color);
         }
+#if 1
         const auto psa = child.get_policy();
+#else
+        const auto psa = policy[i];
+#endif
         const auto denom = 1.0 + child.get_visits();
         const auto puct = cfg_puct * psa * (numerator / denom);
         const auto value = winrate + puct;
@@ -371,8 +571,13 @@ public:
 
         // Calculate the lower confidence bound for each node.
         if ((a_visit > m_lcb_min_visits) && (b_visit > m_lcb_min_visits)) {
+#if 0
             auto a_lcb = a.get_eval_lcb(m_color);
             auto b_lcb = b.get_eval_lcb(m_color);
+#else
+            auto a_lcb = a.get_regularized_policy();
+            auto b_lcb = b.get_regularized_policy();
+#endif
 
             // Sort on lower confidence bounds
             if (a_lcb != b_lcb) {
@@ -479,4 +684,3 @@ void UCTNode::wait_expanded() {
 #endif
     assert(v == ExpandState::EXPANDED);
 }
-

@@ -301,12 +301,13 @@ void UCTSearch::dump_stats(FastState & state, UCTNode & parent) {
         tmpstate.play_move(node->get_move());
         auto pv = move + " " + get_pv(tmpstate, *node);
 
-        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) PV: %s\n",
+        myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (R: %5.2f%%) PV: %s\n",
             move.c_str(),
             node->get_visits(),
             node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
             std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
             node->get_policy() * 100.0f,
+            node->get_regularized_policy() * 100.0f,
             pv.c_str());
     }
     tree_stats(parent);
@@ -798,6 +799,20 @@ int UCTSearch::think(int color, passflag_t passflag) {
         if (!cfg_quiet && elapsed_centis - last_update > 250) {
             last_update = elapsed_centis;
             myprintf("%s\n", get_analysis(m_playouts.load()).c_str());
+#if 0
+            for (const auto& node : m_root->get_children()) {
+                auto move = m_rootstate.move_to_text(node->get_move());
+                if (node.get_visits() == 0) continue;
+
+                myprintf("%4s -> %7d (V: %5.2f%%) (LCB: %5.2f%%) (N: %5.2f%%) (R: %5.2f%%)\n",
+                         move.c_str(),
+                         node->get_visits(),
+                         node->get_visits() ? node->get_raw_eval(color)*100.0f : 0.0f,
+                         std::max(0.0f, node->get_eval_lcb(color) * 100.0f),
+                         node->get_policy() * 100.0f,
+                         node->get_regularized_policy() * 100.0f);
+            }
+#endif
         }
         keeprunning  = is_running();
         keeprunning &= !stop_thinking(elapsed_centis, time_for_move);

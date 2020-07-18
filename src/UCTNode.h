@@ -76,6 +76,8 @@ public:
     int get_visits() const;
     float get_policy() const;
     void set_policy(float policy);
+    float get_regularized_policy() const;
+    void set_regularized_policy(float policy);
     float get_eval_variance(float default_var = 0.0f) const;
     float get_eval(int tomove) const;
     float get_raw_eval(int tomove, int virtual_loss = 0) const;
@@ -97,6 +99,9 @@ public:
     void inflate_all_children();
 
     void clear_expand_state();
+
+    std::vector<double> get_regularized_policy(int color);
+
 private:
     enum Status : char {
         INVALID, // superko
@@ -122,6 +127,7 @@ private:
     std::atomic<int> m_visits{0};
     // UCT eval
     float m_policy;
+    float m_regularized_policy;
     // Original net eval for this node (not children).
     float m_net_eval{0.0f};
     // Variable used for calculating variance of evaluations.
@@ -165,6 +171,10 @@ private:
 
     // wait until we are on EXPANDED state
     void wait_expanded();
+
+    // regularized policy
+    double sum_regularized_policy(double alpha, double lambda,
+                                  const std::vector<double>& policy_list, const std::vector<double>& value_list);
 };
 
 #endif

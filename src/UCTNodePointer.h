@@ -129,6 +129,7 @@ public:
     bool valid() const;
     int get_visits() const;
     float get_policy() const;
+    float get_regularized_policy() const;
     bool active() const;
     int get_move() const;
     // these can only be called if it is an inflated pointer
