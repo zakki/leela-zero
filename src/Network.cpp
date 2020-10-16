@@ -90,6 +90,13 @@ using ConstEigenMatrixMap =
 static std::array<std::array<int, NUM_INTERSECTIONS>, Network::NUM_SYMMETRIES>
     symmetry_nn_idx_table;
 
+const int history_size = 256;
+static uint32_t history_last_black;
+static uint32_t history_last_white;
+static std::atomic<uint32_t> history_id{0};
+static std::vector<float> policy_data_history;
+static std::vector<float> value_data_history;
+
 float Network::benchmark_time(const int centiseconds) {
     const auto cpus = cfg_num_threads;
 
@@ -409,6 +416,9 @@ std::unique_ptr<ForwardPipe>&& Network::init_net(
 
     pipe->initialize(channels);
     pipe->push_weights(WINOGRAD_ALPHA, INPUT_CHANNELS, channels, m_fwd_weights);
+
+    policy_data_history.resize(Network::OUTPUTS_POLICY * BOARD_SIZE * BOARD_SIZE * history_size);
+    value_data_history.resize(Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * history_size);
 
     return std::move(pipe);
 }
@@ -776,7 +786,7 @@ Network::Netresult Network::get_output(
     } else {
         assert(ensemble == RANDOM_SYMMETRY);
         assert(symmetry == -1);
-        const auto rand_sym = Random::get_Rng().randfix<NUM_SYMMETRIES>();
+        const auto rand_sym = true ? 0 : Random::get_Rng().randfix<NUM_SYMMETRIES>();
         result = get_output_internal(state, rand_sym);
 #ifdef USE_OPENCL_SELFCHECK
         // Both implementations are available, self-check the OpenCL driver by
@@ -846,6 +856,39 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
             value_data, m_ip1_val_w, m_ip1_val_b);
     const auto winrate_out = innerproduct<VALUE_LAYER, 1, false>(
         winrate_data, m_ip2_val_w, m_ip2_val_b);
+
+    // Store results
+    if (rand() % 10 == 0) {
+        auto id = ++history_id;
+        auto history_pos = id % history_size;
+        // std::cerr << "Write "
+        //   << history_pos
+        //   << " " << policy_data.size() * history_pos
+        //   << " " << policy_data_history.size()
+        //   << std::endl;
+        // std::copy_n(policy_data.begin(), policy_data.size(),
+        //             policy_data_history.begin() + policy_data.size() * history_pos);
+        // std::copy_n(value_data.begin(), value_data.size(),
+        //             value_data_history.begin() + value_data.size() * history_pos);
+        auto pol = policy_data_history.begin() + policy_data.size() * history_pos;
+        auto val = value_data_history.begin() + value_data.size() * history_pos;
+        for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
+            const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
+            for (auto i = 0; i < OUTPUTS_POLICY; i++) {
+                pol[sym_idx + i * BOARD_SIZE * BOARD_SIZE] = policy_data[idx + i * BOARD_SIZE * BOARD_SIZE];
+            }
+            for (auto i = 0; i < OUTPUTS_VALUE; i++) {
+                val[sym_idx + i * BOARD_SIZE * BOARD_SIZE] = value_data[idx + i * BOARD_SIZE * BOARD_SIZE];
+            }
+        }
+        const auto to_move = state->get_to_move();
+        const auto blacks_move = to_move == FastBoard::BLACK;
+        if (blacks_move) {
+            history_last_black = history_pos;
+        } else {
+            history_last_white = history_pos;
+        }
+    }
 
     // Map TanH output range [-1..1] to [0..1] range
     const auto winrate = (1.0f + std::tanh(winrate_out[0])) / 2.0f;
@@ -1055,4 +1098,23 @@ void Network::drain_evals() {
 
 void Network::resume_evals() {
     m_forward->resume();
+}
+
+
+const float* get_policy_data_history(FastBoard::vertex_t color) {
+    auto history_pos = (history_id - 1) % history_size;
+    if (color == FastBoard::BLACK)
+        history_pos = history_last_black;
+    else if (color == FastBoard::WHITE)
+        history_pos = history_last_white;
+    return policy_data_history.data() + Network::OUTPUTS_POLICY * BOARD_SIZE * BOARD_SIZE * history_pos;
+}
+
+const float* get_value_data_history(FastBoard::vertex_t color) {
+    auto history_pos = (history_id - 1) % history_size;
+    if (color == FastBoard::BLACK)
+        history_pos = history_last_black;
+    else if (color == FastBoard::WHITE)
+        history_pos = history_last_white;
+    return value_data_history.data() + Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * history_pos;
 }
