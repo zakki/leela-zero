@@ -96,6 +96,7 @@ static uint32_t history_last_white;
 static std::atomic<uint32_t> history_id{0};
 static std::vector<float> policy_data_history;
 static std::vector<float> value_data_history;
+static std::vector<FastBoard::vertex_t> board_data_history;
 
 float Network::benchmark_time(const int centiseconds) {
     const auto cpus = cfg_num_threads;
@@ -419,6 +420,7 @@ std::unique_ptr<ForwardPipe>&& Network::init_net(
 
     policy_data_history.resize(Network::OUTPUTS_POLICY * BOARD_SIZE * BOARD_SIZE * history_size);
     value_data_history.resize(Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * history_size);
+    board_data_history.resize(BOARD_SIZE * BOARD_SIZE * history_size);
 
     return std::move(pipe);
 }
@@ -870,14 +872,21 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
         //             policy_data_history.begin() + policy_data.size() * history_pos);
         // std::copy_n(value_data.begin(), value_data.size(),
         //             value_data_history.begin() + value_data.size() * history_pos);
+        auto in = board_data_history.begin() + BOARD_SIZE * BOARD_SIZE * history_pos;
         auto pol = policy_data_history.begin() + policy_data.size() * history_pos;
         auto val = value_data_history.begin() + value_data.size() * history_pos;
         for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
-            const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
-            for (auto i = 0; i < OUTPUTS_POLICY; i++) {
+            in[idx] = state->board.get_state(idx % BOARD_SIZE, idx / BOARD_SIZE);
+        }
+        for (auto i = 0; i < OUTPUTS_POLICY; i++) {
+            for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
+                const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
                 pol[sym_idx + i * BOARD_SIZE * BOARD_SIZE] = policy_data[idx + i * BOARD_SIZE * BOARD_SIZE];
             }
-            for (auto i = 0; i < OUTPUTS_VALUE; i++) {
+        }
+        for (auto i = 0; i < OUTPUTS_VALUE; i++) {
+            for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
+                const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
                 val[sym_idx + i * BOARD_SIZE * BOARD_SIZE] = value_data[idx + i * BOARD_SIZE * BOARD_SIZE];
             }
         }
@@ -1100,21 +1109,23 @@ void Network::resume_evals() {
     m_forward->resume();
 }
 
-
-const float* get_policy_data_history(FastBoard::vertex_t color) {
+int get_history_no(FastBoard::vertex_t color) {
     auto history_pos = (history_id - 1) % history_size;
     if (color == FastBoard::BLACK)
         history_pos = history_last_black;
     else if (color == FastBoard::WHITE)
         history_pos = history_last_white;
+    return history_pos;
+}
+
+const FastBoard::vertex_t* get_board_data_history(int history_pos) {
+    return board_data_history.data() + BOARD_SIZE * BOARD_SIZE * history_pos;
+}
+
+const float* get_policy_data_history(int history_pos) {
     return policy_data_history.data() + Network::OUTPUTS_POLICY * BOARD_SIZE * BOARD_SIZE * history_pos;
 }
 
-const float* get_value_data_history(FastBoard::vertex_t color) {
-    auto history_pos = (history_id - 1) % history_size;
-    if (color == FastBoard::BLACK)
-        history_pos = history_last_black;
-    else if (color == FastBoard::WHITE)
-        history_pos = history_last_white;
+const float* get_value_data_history(int history_pos) {
     return value_data_history.data() + Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * history_pos;
 }

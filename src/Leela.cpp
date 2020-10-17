@@ -536,6 +536,42 @@ void benchmark(GameState& game) {
     search->think(FastBoard::WHITE);
 }
 
+#if 1
+const int color_map[] = {
+    0x5548C1, 0x564AC2, 0x584CC4, 0x594EC6, 0x5A4FC7, 0x5B51C9, 0x5C53CA, 0x5D55CC,
+    0x5E57CD, 0x5F58CF, 0x605AD0, 0x615CD1, 0x625ED3, 0x635FD4, 0x6461D6, 0x6663D7,
+    0x6765D8, 0x6866DA, 0x6968DB, 0x6A6ADC, 0x6B6BDD, 0x6C6DDF, 0x6D6FE0, 0x6E71E1,
+    0x6F72E2, 0x7074E3, 0x7176E4, 0x7377E6, 0x7479E7, 0x757BE8, 0x767CE9, 0x777EEA,
+    0x787FEB, 0x7981EC, 0x7A83ED, 0x7B84EE, 0x7D86EE, 0x7E87EF, 0x7F89F0, 0x808BF1,
+    0x818CF2, 0x828EF3, 0x838FF3, 0x8491F4, 0x8592F5, 0x8794F6, 0x8895F6, 0x8997F7,
+    0x8A98F8, 0x8B9AF8, 0x8C9BF9, 0x8D9DF9, 0x8E9EFA, 0x90A0FA, 0x91A1FB, 0x92A2FB,
+    0x93A4FC, 0x94A5FC, 0x95A6FD, 0x96A8FD, 0x97A9FD, 0x99AAFE, 0x9AACFE, 0x9BADFE,
+    0x9CAEFE, 0x9DB0FF, 0x9EB1FF, 0x9FB2FF, 0xA0B3FF, 0xA2B5FF, 0xA3B6FF, 0xA4B7FF,
+    0xA5B8FF, 0xA6B9FF, 0xA7BAFF, 0xA8BBFF, 0xA9BDFF, 0xABBEFF, 0xACBFFF, 0xADC0FF,
+    0xAEC1FF, 0xAFC2FF, 0xB0C3FF, 0xB1C4FE, 0xB2C5FE, 0xB3C6FE, 0xB4C7FD, 0xB6C8FD,
+    0xB7C9FD, 0xB8C9FC, 0xB9CAFC, 0xBACBFC, 0xBBCCFB, 0xBCCDFB, 0xBDCEFA, 0xBECEFA,
+    0xBFCFF9, 0xC0D0F9, 0xC1D1F8, 0xC2D1F7, 0xC3D2F7, 0xC4D3F6, 0xC5D3F5, 0xC6D4F5,
+    0xC7D4F4, 0xC8D5F3, 0xC9D6F2, 0xCAD6F2, 0xCBD7F1, 0xCCD7F0, 0xCDD8EF, 0xCED8EE,
+    0xCFD9ED, 0xD0D9EC, 0xD1D9EB, 0xD2DAEA, 0xD3DAE9, 0xD4DAE8, 0xD5DBE7, 0xD6DBE6,
+    0xD6DBE5, 0xD7DCE4, 0xD8DCE3, 0xD9DCE2, 0xDADCE1, 0xDBDCE0, 0xDBDCDE, 0xDCDDDD,
+    0xDDDCDC, 0xDEDCDB, 0xDFDCD9, 0xE0DBD8, 0xE1DBD6, 0xE2DAD5, 0xE3D9D3, 0xE3D9D2,
+    0xE4D8D1, 0xE5D8CF, 0xE6D7CE, 0xE7D6CC, 0xE7D6CB, 0xE8D5C9, 0xE9D4C8, 0xE9D3C6,
+    0xEAD3C5, 0xEBD2C3, 0xEBD1C2, 0xECD0C0, 0xECCFBE, 0xEDCFBD, 0xEDCEBB, 0xEECDBA,
+    0xEECCB8, 0xEFCBB7, 0xEFCAB5, 0xF0C9B4, 0xF0C8B2, 0xF0C7B1, 0xF1C6AF, 0xF1C5AD,
+    0xF1C4AC, 0xF2C3AA, 0xF2C2A9, 0xF2C1A7, 0xF2BFA6, 0xF3BEA4, 0xF3BDA2, 0xF3BCA1,
+    0xF3BB9F, 0xF3B99E, 0xF3B89C, 0xF3B79A, 0xF3B699, 0xF3B497, 0xF3B396, 0xF3B294,
+    0xF3B093, 0xF3AF91, 0xF3AE8F, 0xF3AC8E, 0xF3AB8C, 0xF3A98B, 0xF3A889, 0xF2A788,
+    0xF2A586, 0xF2A485, 0xF2A283, 0xF1A181, 0xF19F80, 0xF19E7E, 0xF09C7D, 0xF09A7B,
+    0xF0997A, 0xEF9778, 0xEF9677, 0xEE9475, 0xEE9274, 0xED9172, 0xED8F71, 0xEC8D6F,
+    0xEC8C6E, 0xEB8A6C, 0xEB886B, 0xEA8669, 0xEA8568, 0xE98366, 0xE88165, 0xE87F63,
+    0xE77E62, 0xE67C61, 0xE57A5F, 0xE5785E, 0xE4765C, 0xE3745B, 0xE27259, 0xE17058,
+    0xE06F57, 0xE06D55, 0xDF6B54, 0xDE6953, 0xDD6751, 0xDC6550, 0xDB634E, 0xDA614D,
+    0xD95F4C, 0xD85D4B, 0xD75B49, 0xD65848, 0xD55647, 0xD45445, 0xD25244, 0xD15043,
+    0xD04E42, 0xCF4B40, 0xCE493F, 0xCD473E, 0xCB443D, 0xCA423B, 0xC9403A, 0xC83D39,
+    0xC63B38, 0xC53837, 0xC43636, 0xC23334, 0xC13033, 0xC02D32, 0xBE2A31, 0xBD2730,
+    0xBB242F, 0xBA212E, 0xB91D2D, 0xB7192C, 0xB6142B, 0xB40F29, 0xB30828, 0xB10127,
+};
+#else
 const int color_map[] = {
     0x000000, 0x050004, 0x090008, 0x0D010D, 0x110111, 0x140114, 0x160117, 0x19011A,
     0x1B011E, 0x1C0221, 0x1E0225, 0x1F0228, 0x20022C, 0x210230, 0x220233, 0x220337,
@@ -570,8 +606,9 @@ const int color_map[] = {
     0xECEDFE, 0xECEFFE, 0xECF0FE, 0xEDF2FE, 0xEDF3FE, 0xEEF5FE, 0xEEF6FE, 0xEFF7FE,
     0xF0F9FE, 0xF1FAFE, 0xF2FBFE, 0xF4FCFE, 0xF6FDFF, 0xF8FEFF, 0xFBFFFF, 0xFFFFFF,
 };
+#endif
 
-static char* create_image(const float* data, int* len) {
+static char* create_image(const FastBoard::vertex_t* board, const float* data, int* len) {
 #if 0
     float min = 0.0f;
     float max = 0.10f;
@@ -594,14 +631,51 @@ static char* create_image(const float* data, int* len) {
         buf[i * 3 + 1] = (color_map[n] >> 8) & 0xff;
         buf[i * 3 + 2] = color_map[n] & 0xff;
     }
-#if 1
+#if 0
     unsigned char *png = stbi_write_png_to_mem(buf.get(), 3 * BOARD_SIZE,
       BOARD_SIZE, BOARD_SIZE, 3, len);
 #else
-    int scale = 2;
+    const auto scale = 5;
     auto out = std::unique_ptr<unsigned char[]>(new unsigned char[BOARD_SIZE * BOARD_SIZE * 3 * scale * scale]);
     stbir_resize_uint8(buf.get(), BOARD_SIZE, BOARD_SIZE, 0,
       out.get(), BOARD_SIZE * scale, BOARD_SIZE * scale, 0, 3);
+    const auto per_line = BOARD_SIZE * scale;
+    for (auto y = 0; y < BOARD_SIZE; y++) {
+        for (auto x = 0; x < BOARD_SIZE; x++) {
+            auto idx = y * BOARD_SIZE + x;
+            if (board[idx] == FastBoard::EMPTY) continue;
+            unsigned char stone = board[idx] == FastBoard::BLACK ? 0x33 : 0xff;
+            unsigned char stone2 = board[idx] == FastBoard::BLACK ? 0x0 : 0xcc;
+            for (auto oy = 1; oy <= 3; oy++) {
+                for (auto ox = 1; ox <= 3; ox++) {
+                    out[((y * scale + oy) * per_line + x * scale + ox) * 3]     = stone;
+                    out[((y * scale + oy) * per_line + x * scale + ox) * 3 + 1] = stone;
+                    out[((y * scale + oy) * per_line + x * scale + ox) * 3 + 2] = stone;
+                }
+            }
+            //out[((y * scale + 0) * per_line + x * scale + 2) * 3] = stone;
+            //out[((y * scale + 0) * per_line + x * scale + 2) * 3 + 1] = stone;
+            //out[((y * scale + 0) * per_line + x * scale + 2) * 3 + 2] = stone;
+            //out[((y * scale + 2) * per_line + x * scale + 0) * 3] = stone;
+            //out[((y * scale + 2) * per_line + x * scale + 0) * 3 + 1] = stone;
+            //out[((y * scale + 2) * per_line + x * scale + 0) * 3 + 2] = stone;
+            out[((y * scale + 2) * per_line + x * scale + 4) * 3] = stone2;
+            out[((y * scale + 2) * per_line + x * scale + 4) * 3 + 1] = stone2;
+            out[((y * scale + 2) * per_line + x * scale + 4) * 3 + 2] = stone2;
+            out[((y * scale + 1) * per_line + x * scale + 4) * 3] = stone2;
+            out[((y * scale + 1) * per_line + x * scale + 4) * 3 + 1] = stone2;
+            out[((y * scale + 1) * per_line + x * scale + 4) * 3 + 2] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 2) * 3] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 2) * 3 + 1] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 2) * 3 + 2] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 3) * 3] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 3) * 3 + 1] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 3) * 3 + 2] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 4) * 3] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 4) * 3 + 1] = stone2;
+            out[((y * scale + 0) * per_line + x * scale + 4) * 3 + 2] = stone2;
+        }
+    }
     unsigned char *png = stbi_write_png_to_mem(out.get(), 3 * BOARD_SIZE * scale,
       BOARD_SIZE * scale, BOARD_SIZE * scale,
       3, len);
@@ -610,8 +684,10 @@ static char* create_image(const float* data, int* len) {
 }
 
 void start_http_server() {
-    extern const float* get_policy_data_history(FastBoard::vertex_t color);
-    extern const float* get_value_data_history(FastBoard::vertex_t color);
+    extern int get_history_no(FastBoard::vertex_t color);
+    extern const FastBoard::vertex_t* get_board_data_history(int history_pos);
+    extern const float* get_policy_data_history(int history_pos);
+    extern const float* get_value_data_history(int history_pos);
     std::thread t([]{
             using namespace httplib;
             Server svr;
@@ -653,38 +729,26 @@ transform: scaleY(-1);
 </body>
                 )", "text/html");
             });
-            svr.Get(R"(/policy/(\d+))", [](const Request& req, Response& res) {
-                auto num = req.matches.size() < 2 ? 0 : std::atoi(req.matches[1].str().c_str());
-                auto data = get_policy_data_history(FastBoard::EMPTY) + num * BOARD_SIZE * BOARD_SIZE;
-                int len;
-                auto png = create_image(data, &len);
-                if (png == NULL) return;
-                res.set_content((char*)png, len, "image/png");
-                STBIW_FREE(png);
-            });
             svr.Get(R"(/policy/(b|w)/(\d+))", [](const Request& req, Response& res) {
                 auto color = req.matches[1].str() == "b" ? FastBoard::BLACK : FastBoard::WHITE;
+                auto history_no = get_history_no(color);
                 auto num = std::atoi(req.matches[2].str().c_str());
-                auto data = get_policy_data_history(color) + num * BOARD_SIZE * BOARD_SIZE;
+                auto board = get_board_data_history(history_no);
+                auto data = get_policy_data_history(history_no) + num * BOARD_SIZE * BOARD_SIZE;
                 int len;
-                auto png = create_image(data, &len);
-                if (png == NULL) return;
-                res.set_content((char*)png, len, "image/png");
-                STBIW_FREE(png);
-            });
-            svr.Get("/value", [](const Request& req, Response& res) {
-                auto data = get_value_data_history(FastBoard::EMPTY);
-                int len;
-                auto png = create_image(data, &len);
+                auto png = create_image(board, data, &len);
                 if (png == NULL) return;
                 res.set_content((char*)png, len, "image/png");
                 STBIW_FREE(png);
             });
             svr.Get(R"(/value/(b|w))", [](const Request& req, Response& res) {
                 auto color = req.matches[1].str() == "b" ? FastBoard::BLACK : FastBoard::WHITE;
-                auto data = get_value_data_history(color);
+                auto history_no = get_history_no(color);
+                auto num = std::atoi(req.matches[2].str().c_str());
+                auto board = get_board_data_history(history_no);
+                auto data = get_value_data_history(history_no);
                 int len;
-                auto png = create_image(data, &len);
+                auto png = create_image(board, data, &len);
                 if (png == NULL) return;
                 res.set_content((char*)png, len, "image/png");
                 STBIW_FREE(png);
