@@ -123,6 +123,8 @@ extern std::string cfg_options_str;
 extern bool cfg_benchmark;
 extern bool cfg_cpu_only;
 extern AnalyzeTags cfg_analyze_tags;
+extern int cfg_server_port;
+extern std::string cfg_server_dir;
 
 static constexpr size_t MiB = 1024LL * 1024LL;
 

@@ -1,0 +1,41 @@
+<head>
+  <style>
+	body{
+	background: #cfc;
+	}
+	img {
+	transform: scaleY(-1);
+	}
+  </style>
+</head>
+<body>
+  <h1>Leela Zero</h1>
+  <h2>Policy #0</h2>
+  <img id="policy-b0" src="/policy/b/0" width="190" height="190">
+  <img id="policy-w0" src="/policy/w/0" width="190" height="190">
+
+  <h2>Policy #1</h2>
+  <img id="policy-b1" src="/policy/b/1" width="190" height="190">
+  <img id="policy-w1" src="/policy/w/1" width="190" height="190">
+
+  <h2>Value</h2>
+  <img id="value-b" src="/value/b" width="190" height="190">
+  <img id="value-w" src="/value/w" width="190" height="190"><br>
+
+  <img id="value2-b" src="/value2/b" width="736" height="736"><br>
+  <img id="value2-w" src="/value2/w" width="736" height="736"><br>
+</div>
+<script>
+  setInterval(()=>{
+  let t = new Date().getTime();
+  document.getElementById("policy-b0").src = "/policy/b/0?_t=" + t;
+  document.getElementById("policy-b1").src = "/policy/b/1?_t=" + t;
+  document.getElementById("policy-w0").src = "/policy/w/0?_t=" + t;
+  document.getElementById("policy-w1").src = "/policy/w/1?_t=" + t;
+  document.getElementById("value-b").src = "/value/b?_t=" + t;
+  document.getElementById("value-w").src = "/value/w?_t=" + t;
+  document.getElementById("value2-b").src = "/value2/b?_t=" + t;
+  document.getElementById("value2-w").src = "/value2/w?_t=" + t;
+  }, 100);
+</script>
+</body>

@@ -26,6 +26,7 @@
     <ClInclude Include="..\..\src\FullBoard.h" />
     <ClInclude Include="..\..\src\GameState.h" />
     <ClInclude Include="..\..\src\GTP.h" />
+    <ClInclude Include="..\..\src\Http.h" />
     <ClInclude Include="..\..\src\Im2Col.h" />
     <ClInclude Include="..\..\src\KoState.h" />
     <ClInclude Include="..\..\src\Network.h" />
@@ -56,6 +57,7 @@
     <ClCompile Include="..\..\src\FullBoard.cpp" />
     <ClCompile Include="..\..\src\GameState.cpp" />
     <ClCompile Include="..\..\src\GTP.cpp" />
+    <ClCompile Include="..\..\src\Http.cpp" />
     <ClCompile Include="..\..\src\KoState.cpp" />
     <ClCompile Include="..\..\src\Leela.cpp" />
     <ClCompile Include="..\..\src\Network.cpp" />

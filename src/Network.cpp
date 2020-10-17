@@ -96,6 +96,8 @@ static uint32_t history_last_white;
 static std::atomic<uint32_t> history_id{0};
 static std::vector<float> policy_data_history;
 static std::vector<float> value_data_history;
+static std::vector<float> value2_data_history;
+static std::vector<float> winrate_data_history;
 static std::vector<FastBoard::vertex_t> board_data_history;
 
 float Network::benchmark_time(const int centiseconds) {
@@ -420,6 +422,8 @@ std::unique_ptr<ForwardPipe>&& Network::init_net(
 
     policy_data_history.resize(Network::OUTPUTS_POLICY * BOARD_SIZE * BOARD_SIZE * history_size);
     value_data_history.resize(Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * history_size);
+    value2_data_history.resize(Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * VALUE_LAYER * history_size);
+    winrate_data_history.resize(VALUE_LAYER * history_size);
     board_data_history.resize(BOARD_SIZE * BOARD_SIZE * history_size);
 
     return std::move(pipe);
@@ -875,6 +879,8 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
         auto in = board_data_history.begin() + BOARD_SIZE * BOARD_SIZE * history_pos;
         auto pol = policy_data_history.begin() + policy_data.size() * history_pos;
         auto val = value_data_history.begin() + value_data.size() * history_pos;
+        auto val2 = value2_data_history.begin() + value_data.size() * VALUE_LAYER * history_pos;
+        auto win2 = winrate_data_history.begin() + VALUE_LAYER * history_pos;
         for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
             in[idx] = state->board.get_state(idx % BOARD_SIZE, idx / BOARD_SIZE);
         }
@@ -889,6 +895,19 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
                 const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
                 val[sym_idx + i * BOARD_SIZE * BOARD_SIZE] = value_data[idx + i * BOARD_SIZE * BOARD_SIZE];
             }
+        }
+        for (auto i = 0; i < OUTPUTS_VALUE; i++) {
+            for (auto l = 0; l < VALUE_LAYER; l++) {
+                auto p = val2 + (i * VALUE_LAYER + l) * BOARD_SIZE * BOARD_SIZE;
+                for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
+                    const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
+                    p[sym_idx] = value_data[idx + i * BOARD_SIZE * BOARD_SIZE]
+                        * m_ip1_val_w[idx + l * BOARD_SIZE * BOARD_SIZE];
+                }
+            }
+        }
+        for (auto l = 0; l < VALUE_LAYER; l++) {
+            win2[l] = winrate_data[l] * m_ip2_val_w[l];
         }
         const auto to_move = state->get_to_move();
         const auto blacks_move = to_move == FastBoard::BLACK;
@@ -1128,4 +1147,12 @@ const float* get_policy_data_history(int history_pos) {
 
 const float* get_value_data_history(int history_pos) {
     return value_data_history.data() + Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * history_pos;
+}
+
+const float* get_value2_data_history(int history_pos) {
+    return value2_data_history.data() + Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * Network::VALUE_LAYER * history_pos;
+}
+
+const float* get_winrate_data_history(int history_pos) {
+    return winrate_data_history.data() + Network::VALUE_LAYER * history_pos;
 }

@@ -100,6 +100,8 @@ std::string cfg_options_str;
 bool cfg_benchmark;
 bool cfg_cpu_only;
 AnalyzeTags cfg_analyze_tags;
+int cfg_server_port;
+std::string cfg_server_dir;
 
 /* Parses tags for the lz-analyze GTP command and friends */
 AnalyzeTags::AnalyzeTags(std::istringstream& cmdstream, const GameState& game) {
@@ -379,6 +381,9 @@ void GTP::setup_default_parameters() {
     std::uint64_t seed2 =
         std::chrono::high_resolution_clock::now().time_since_epoch().count();
     cfg_rng_seed = seed1 ^ seed2;
+
+    cfg_server_port = 0;
+    cfg_server_dir = "www";
 }
 
 const std::string GTP::s_commands[] = {
