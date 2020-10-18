@@ -90,7 +90,10 @@ using ConstEigenMatrixMap =
 static std::array<std::array<int, NUM_INTERSECTIONS>, Network::NUM_SYMMETRIES>
     symmetry_nn_idx_table;
 
-const int history_size = 256;
+
+static int s_channels;
+static int s_blocks;
+const int history_size = 64;
 static uint32_t history_last_black;
 static uint32_t history_last_white;
 static std::atomic<uint32_t> history_id{0};
@@ -98,6 +101,7 @@ static std::vector<float> policy_data_history;
 static std::vector<float> value_data_history;
 static std::vector<float> value2_data_history;
 static std::vector<float> winrate_data_history;
+std::vector<float> resnet_history;
 static std::vector<FastBoard::vertex_t> board_data_history;
 
 float Network::benchmark_time(const int centiseconds) {
@@ -417,6 +421,9 @@ std::pair<int, int> Network::load_network_file(const std::string& filename) {
 std::unique_ptr<ForwardPipe>&& Network::init_net(
     const int channels, std::unique_ptr<ForwardPipe>&& pipe) {
 
+    s_channels = channels;
+    s_blocks = (m_fwd_weights->m_conv_weights.size() - 1) / 2;
+
     pipe->initialize(channels);
     pipe->push_weights(WINOGRAD_ALPHA, INPUT_CHANNELS, channels, m_fwd_weights);
 
@@ -425,6 +432,7 @@ std::unique_ptr<ForwardPipe>&& Network::init_net(
     value2_data_history.resize(Network::OUTPUTS_VALUE * BOARD_SIZE * BOARD_SIZE * VALUE_LAYER * history_size);
     winrate_data_history.resize(VALUE_LAYER * history_size);
     board_data_history.resize(BOARD_SIZE * BOARD_SIZE * history_size);
+    resnet_history.resize(BOARD_SIZE * BOARD_SIZE * s_channels * s_blocks * history_size);
 
     return std::move(pipe);
 }
@@ -832,14 +840,20 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
 
+    auto history_no = -1;
+    if (cfg_server_port > 0 && rand() % 10 == 0) {
+        auto id = ++history_id;
+        history_no = id % history_size;
+    }
+
     const auto input_data = gather_features(state, symmetry);
     std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
     std::vector<float> value_data(OUTPUTS_VALUE * width * height);
 #ifdef USE_OPENCL_SELFCHECK
     if (selfcheck) {
-        m_forward_cpu->forward(input_data, policy_data, value_data);
+        m_forward_cpu->forward(input_data, policy_data, value_data, history_no);
     } else {
-        m_forward->forward(input_data, policy_data, value_data);
+        m_forward->forward(input_data, policy_data, value_data, history_no);
     }
 #else
     m_forward->forward(input_data, policy_data, value_data);
@@ -864,23 +878,21 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
         winrate_data, m_ip2_val_w, m_ip2_val_b);
 
     // Store results
-    if (rand() % 10 == 0) {
-        auto id = ++history_id;
-        auto history_pos = id % history_size;
+    if (history_no >= 0) {
         // std::cerr << "Write "
         //   << history_pos
         //   << " " << policy_data.size() * history_pos
         //   << " " << policy_data_history.size()
         //   << std::endl;
         // std::copy_n(policy_data.begin(), policy_data.size(),
-        //             policy_data_history.begin() + policy_data.size() * history_pos);
+        //             policy_data_history.begin() + policy_data.size() * history_no);
         // std::copy_n(value_data.begin(), value_data.size(),
-        //             value_data_history.begin() + value_data.size() * history_pos);
-        auto in = board_data_history.begin() + BOARD_SIZE * BOARD_SIZE * history_pos;
-        auto pol = policy_data_history.begin() + policy_data.size() * history_pos;
-        auto val = value_data_history.begin() + value_data.size() * history_pos;
-        auto val2 = value2_data_history.begin() + value_data.size() * VALUE_LAYER * history_pos;
-        auto win2 = winrate_data_history.begin() + VALUE_LAYER * history_pos;
+        //             value_data_history.begin() + value_data.size() * history_no);
+        auto in = board_data_history.begin() + BOARD_SIZE * BOARD_SIZE * history_no;
+        auto pol = policy_data_history.begin() + policy_data.size() * history_no;
+        auto val = value_data_history.begin() + value_data.size() * history_no;
+        auto val2 = value2_data_history.begin() + value_data.size() * VALUE_LAYER * history_no;
+        auto win2 = winrate_data_history.begin() + VALUE_LAYER * history_no;
         for (auto idx = size_t{0}; idx < NUM_INTERSECTIONS; idx++) {
             in[idx] = state->board.get_state(idx % BOARD_SIZE, idx / BOARD_SIZE);
         }
@@ -912,9 +924,9 @@ Network::Netresult Network::get_output_internal(const GameState* const state,
         const auto to_move = state->get_to_move();
         const auto blacks_move = to_move == FastBoard::BLACK;
         if (blacks_move) {
-            history_last_black = history_pos;
+            history_last_black = history_no;
         } else {
-            history_last_white = history_pos;
+            history_last_white = history_no;
         }
     }
 
@@ -1155,4 +1167,10 @@ const float* get_value2_data_history(int history_pos) {
 
 const float* get_winrate_data_history(int history_pos) {
     return winrate_data_history.data() + Network::VALUE_LAYER * history_pos;
+}
+
+const float* get_resnet_history(int history_pos, int& channels, int& block) {
+    channels = s_channels;
+    block = s_blocks;
+    return resnet_history.data() + BOARD_SIZE * BOARD_SIZE * s_channels * s_blocks * history_pos;
 }

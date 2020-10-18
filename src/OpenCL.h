@@ -148,7 +148,8 @@ public:
     void forward(const std::vector<float>& input,
                  std::vector<float>& output_pol,
                  std::vector<float>& output_val,
-                 OpenCLContext& opencl_context, int batch_size = 1);
+                 OpenCLContext& opencl_context, int batch_size = 1,
+                 const int history_id = -1);
 
 private:
     using weight_slice_t = std::vector<cl::Buffer>::const_iterator;

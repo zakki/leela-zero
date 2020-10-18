@@ -43,8 +43,11 @@
 #endif
 
 #include "CPUPipe.h"
+#include "GTP.h"
 #include "Im2Col.h"
 #include "Network.h"
+
+extern std::vector<float> resnet_history;
 
 #ifndef USE_BLAS
 // Eigen helpers
@@ -378,7 +381,8 @@ void batchnorm(const size_t channels,
 
 void CPUPipe::forward(const std::vector<float>& input,
                       std::vector<float>& output_pol,
-                      std::vector<float>& output_val) {
+                      std::vector<float>& output_val,
+                      const int history_id) {
     // Input convolution
     constexpr auto P = WINOGRAD_P;
     // Calculate output channels
@@ -401,6 +405,7 @@ void CPUPipe::forward(const std::vector<float>& input,
                                  m_weights->m_batchnorm_stddevs[0].data());
 
     // Residual tower
+    const auto blocks = (m_weights->m_conv_weights.size() - 1) / 2;
     auto conv_in = std::vector<float>(output_channels * NUM_INTERSECTIONS);
     auto res = std::vector<float>(output_channels * NUM_INTERSECTIONS);
     for (auto i = size_t{1}; i < m_weights->m_conv_weights.size(); i += 2) {
@@ -420,6 +425,15 @@ void CPUPipe::forward(const std::vector<float>& input,
             output_channels, conv_out,
             m_weights->m_batchnorm_means[i + 1].data(),
             m_weights->m_batchnorm_stddevs[i + 1].data(), res.data());
+
+        if (cfg_server_port > 0 && history_id >= 0) {
+            auto block_idx = (i - 1) / 2;
+            const auto dst = resnet_history.begin()
+                + BOARD_SIZE * BOARD_SIZE * output_channels * (blocks * history_id + block_idx);
+            std::copy_n(conv_out.begin(),
+                BOARD_SIZE * BOARD_SIZE * output_channels,
+                dst);
+        }
     }
     convolve<1>(Network::OUTPUTS_POLICY, conv_out, m_conv_pol_w, m_conv_pol_b,
                 output_pol);

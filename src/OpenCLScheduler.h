@@ -57,10 +57,12 @@ class OpenCLScheduler : public ForwardPipe {
         const std::vector<float>& in;
         std::vector<float>& out_p;
         std::vector<float>& out_v;
+        int history_id;
         ForwardQueueEntry(const std::vector<float>& input,
                           std::vector<float>& output_pol,
-                          std::vector<float>& output_val)
-            : in(input), out_p(output_pol), out_v(output_val) {}
+                          std::vector<float>& output_val,
+                          const int hid)
+            : in(input), out_p(output_pol), out_v(output_val), history_id(hid) {}
     };
 
 public:
@@ -70,7 +72,8 @@ public:
     virtual void initialize(int channels);
     virtual void forward(const std::vector<float>& input,
                          std::vector<float>& output_pol,
-                         std::vector<float>& output_val);
+                         std::vector<float>& output_val,
+                         const int history_id);
     virtual bool needs_autodetect();
     virtual void push_weights(
         unsigned int filter_size, unsigned int channels, unsigned int outputs,

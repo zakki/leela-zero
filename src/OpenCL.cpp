@@ -144,7 +144,8 @@ void OpenCL_Network<net_t>::forward(const std::vector<float>& input,
                                     std::vector<float>& output_pol,
                                     std::vector<float>& output_val,
                                     OpenCLContext& opencl_context,
-                                    const int batch_size) {
+                                    const int batch_size,
+                                    const int history_id) {
     constexpr auto tiles = WINOGRAD_P;
     constexpr auto one_plane = NUM_INTERSECTIONS * sizeof(net_t);
     const auto finalSize_pol =

@@ -308,6 +308,81 @@ static char* create_value_image(const float* data, const float* winrate, int* le
     return (char*) png;
 }
 
+static char* create_resnet_image(const float* data, int channels, int* len) {
+    assert(Network::VALUE_LAYER == 16 * 16);
+    const auto padding = 4;
+    const auto out_size = (BOARD_SIZE + padding) * 16;
+    auto buf = std::unique_ptr<unsigned char[]>(new unsigned char[out_size * out_size * 3]);
+    std::fill_n(buf.get(), out_size * out_size * 3, 255);
+#if 0
+    auto min = 10e10;
+    auto max = -10e10;
+    for (auto i = 0; i < BOARD_SIZE * BOARD_SIZE * 256; i++) {
+      auto v = data[i];
+      if (v < min)
+        min = v;
+      if (v > max)
+        max = v;
+    }
+#elif 0
+    const auto size = BOARD_SIZE * BOARD_SIZE * 256;
+    auto sum = 0.0;
+    auto sum2 = 0.0;
+    for (auto i = 0; i < size; i++) {
+      auto v = data[i];
+      sum += v;
+      sum2 += v * v;
+    }
+    auto ave = sum / size;
+    auto variance = sum2 / size - ave * ave;
+    auto sd = sqrt(variance);
+    auto min = ave - sd * 2;
+    auto max = ave + sd * 2;
+#endif
+    for (auto l = 0; l < channels; l++) {
+        const auto d = data + l * BOARD_SIZE * BOARD_SIZE;
+#if 1
+        auto min = 10e10;
+        auto max = -10e10;
+        for (auto i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+            auto v = d[i];
+            if (v < min)
+                min = v;
+            if (v > max)
+                max = v;
+        }
+        if (min > -max)
+          min = -max;
+        if (max < -min)
+          max = -min;
+#endif
+        const auto ox = l % 16 * (BOARD_SIZE + padding);
+        const auto oy = l / 16 * (BOARD_SIZE + padding);
+        for (auto i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) {
+            auto ix = i % BOARD_SIZE;
+            auto iy = i / BOARD_SIZE;
+            auto v = (int)((d[i] - min) / (max - min) * 255.0f + 0.5f);
+            auto n = std::min(std::max(v, 0), 255);
+            buf[((oy + iy + 2) * out_size + ox + ix + 2) * 3 + 0] = (color_map[n] >> 16) & 0xff;
+            buf[((oy + iy + 2) * out_size + ox + ix + 2) * 3 + 1] = (color_map[n] >> 8) & 0xff;
+            buf[((oy + iy + 2) * out_size + ox + ix + 2) * 3 + 2] = color_map[n] & 0xff;
+        }
+    }
+#if 1
+    unsigned char *png = stbi_write_png_to_mem(buf.get(), 3 * out_size,
+     out_size, out_size, 3, len);
+#else
+    const auto scale = 2;
+    auto out = std::unique_ptr<unsigned char[]>(new unsigned char[out_size * out_size * 3 * scale * scale]);
+    stbir_resize_uint8(buf.get(), out_size, out_size, 0,
+      out.get(), out_size * scale, out_size * scale, 0, 3);
+    unsigned char *png = stbi_write_png_to_mem(out.get(), 3 * out_size * scale,
+      out_size * scale, out_size * scale,
+      3, len);
+#endif
+    return (char*) png;
+}
+
 void start_http_server() {
     extern int get_history_no(FastBoard::vertex_t color);
     extern const FastBoard::vertex_t* get_board_data_history(int history_pos);
@@ -315,6 +390,8 @@ void start_http_server() {
     extern const float* get_value_data_history(int history_pos);
     extern const float* get_value2_data_history(int history_pos);
     extern const float* get_winrate_data_history(int history_pos);
+    extern const float* get_resnet_history(int history_pos, int& channels, int& blocks);
+
     std::thread t([&]{
             using namespace httplib;
             Server svr;
@@ -338,7 +415,6 @@ void start_http_server() {
             svr.Get(R"(/value/(b|w))", [](const Request& req, Response& res) {
                 auto color = req.matches[1].str() == "b" ? FastBoard::BLACK : FastBoard::WHITE;
                 auto history_no = get_history_no(color);
-                auto num = std::atoi(req.matches[2].str().c_str());
                 auto board = get_board_data_history(history_no);
                 auto data = get_value_data_history(history_no);
                 int len;
@@ -350,12 +426,24 @@ void start_http_server() {
             svr.Get(R"(/value2/(b|w))", [](const Request& req, Response& res) {
                 auto color = req.matches[1].str() == "b" ? FastBoard::BLACK : FastBoard::WHITE;
                 auto history_no = get_history_no(color);
-                auto num = std::atoi(req.matches[2].str().c_str());
-                //auto board = get_board_data_history(history_no);
                 auto data = get_value2_data_history(history_no);
                 auto data2 = get_winrate_data_history(history_no);
                 int len;
                 auto png = create_value_image(data, data2, &len);
+                if (png == NULL) return;
+                res.set_content((char*)png, len, "image/png");
+                STBIW_FREE(png);
+            });
+            svr.Get(R"(/resnet/(b|w)/(\d+))", [](const Request& req, Response& res) {
+                auto color = req.matches[1].str() == "b" ? FastBoard::BLACK : FastBoard::WHITE;
+                auto history_no = get_history_no(color);
+                auto block_idx = std::atoi(req.matches[2].str().c_str());
+                int channels;
+                int blocks;
+                auto data = get_resnet_history(history_no, channels, blocks);
+                if (block_idx < 0 || block_idx >= blocks) return;
+                int len;
+                auto png = create_resnet_image(data + BOARD_SIZE * BOARD_SIZE * channels * block_idx, channels, &len);
                 if (png == NULL) return;
                 res.set_content((char*)png, len, "image/png");
                 STBIW_FREE(png);

@@ -1,41 +1,48 @@
-<head>
-  <style>
-	body{
-	background: #cfc;
-	}
-	img {
-	transform: scaleY(-1);
-	}
-  </style>
-</head>
-<body>
-  <h1>Leela Zero</h1>
-  <h2>Policy #0</h2>
-  <img id="policy-b0" src="/policy/b/0" width="190" height="190">
-  <img id="policy-w0" src="/policy/w/0" width="190" height="190">
+<!DOCTYPE html>
+<html>
+  <head>
+	<style>
+	  body{
+	  background: #cfc;
+	  }
+	  img {
+	  transform: scaleY(-1);
+	  }
+	</style>
+  </head>
+  <body>
+	<h1>Leela Zero</h1>
+	<h2>Policy #0</h2>
+	<img id="policy-b0" src="/policy/b/0" width="190" height="190">
+	<img id="policy-w0" src="/policy/w/0" width="190" height="190">
 
-  <h2>Policy #1</h2>
-  <img id="policy-b1" src="/policy/b/1" width="190" height="190">
-  <img id="policy-w1" src="/policy/w/1" width="190" height="190">
+	<h2>Policy #1</h2>
+	<img id="policy-b1" src="/policy/b/1" width="190" height="190">
+	<img id="policy-w1" src="/policy/w/1" width="190" height="190">
 
-  <h2>Value</h2>
-  <img id="value-b" src="/value/b" width="190" height="190">
-  <img id="value-w" src="/value/w" width="190" height="190"><br>
+	<h2>Value</h2>
+	<img id="value-b" src="/value/b" width="190" height="190">
+	<img id="value-w" src="/value/w" width="190" height="190"><br>
 
-  <img id="value2-b" src="/value2/b" width="736" height="736"><br>
-  <img id="value2-w" src="/value2/w" width="736" height="736"><br>
+	<img id="value2-b" src="/value2/b" width="736" height="736"><br>
+	<img id="value2-w" src="/value2/w" width="736" height="736"><br>
+
+	<h2>ResNet</h2>
+	<img id="resnet-b0" src="/resne/b/0" width="368" height="368">
+	<img id="resnet-b1" src="/resne/b/1" width="368" height="368">
+	<img id="resnet-b2" src="/resne/b/2" width="368" height="368">
+	<img id="resnet-b3" src="/resne/b/3" width="368" height="368">
+	<img id="resnet-b4" src="/resne/b/4" width="368" height="368">
+	<img id="resnet-b5" src="/resne/b/5" width="368" height="368">
+	<img id="resnet-b6" src="/resne/b/6" width="368" height="368">
+	<img id="resnet-b7" src="/resne/b/7" width="368" height="368">
+	<img id="resnet-b8" src="/resne/b/8" width="368" height="368">
+	<img id="resnet-b9" src="/resne/b/9" width="368" height="368">
+	<img id="resnet-b10" src="/resne/b/10" width="368" height="368">
+	<img id="resnet-b11" src="/resne/b/11" width="368" height="368">
+	<img id="resnet-b12" src="/resne/b/12" width="368" height="368">
+	<img id="resnet-b13" src="/resne/b/13" width="368" height="368">
+	<img id="resnet-b14" src="/resne/b/14" width="368" height="368">
 </div>
-<script>
-  setInterval(()=>{
-  let t = new Date().getTime();
-  document.getElementById("policy-b0").src = "/policy/b/0?_t=" + t;
-  document.getElementById("policy-b1").src = "/policy/b/1?_t=" + t;
-  document.getElementById("policy-w0").src = "/policy/w/0?_t=" + t;
-  document.getElementById("policy-w1").src = "/policy/w/1?_t=" + t;
-  document.getElementById("value-b").src = "/value/b?_t=" + t;
-  document.getElementById("value-w").src = "/value/w?_t=" + t;
-  document.getElementById("value2-b").src = "/value2/b?_t=" + t;
-  document.getElementById("value2-w").src = "/value2/w?_t=" + t;
-  }, 100);
-</script>
+<script src="app.js"></script>
 </body>

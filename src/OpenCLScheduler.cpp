@@ -256,9 +256,10 @@ void OpenCLScheduler<net_t>::push_weights(
 template <typename net_t>
 void OpenCLScheduler<net_t>::forward(const std::vector<float>& input,
                                      std::vector<float>& output_pol,
-                                     std::vector<float>& output_val) {
+                                     std::vector<float>& output_val,
+                                     const int history_id) {
     auto entry =
-        std::make_shared<ForwardQueueEntry>(input, output_pol, output_val);
+        std::make_shared<ForwardQueueEntry>(input, output_pol, output_val, history_id);
     std::unique_lock<std::mutex> lk(entry->mutex);
     {
         std::unique_lock<std::mutex> lk(m_mutex);

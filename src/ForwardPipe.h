@@ -61,7 +61,8 @@ public:
     };
     virtual void forward(const std::vector<float>& input,
                          std::vector<float>& output_pol,
-                         std::vector<float>& output_val) = 0;
+                         std::vector<float>& output_val,
+                         const int history_id) = 0;
     virtual void push_weights(
         unsigned int filter_size, unsigned int channels, unsigned int outputs,
         std::shared_ptr<const ForwardPipeWeights> weights) = 0;
