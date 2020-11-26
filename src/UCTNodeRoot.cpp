@@ -58,6 +58,15 @@ UCTNode* UCTNode::get_first_child() const {
     return m_children.front().get();
 }
 
+
+UCTNode* UCTNode::get_nth_child(int n) const {
+    if (m_children.empty()) {
+        return nullptr;
+    }
+
+    return m_children[std::min(static_cast<size_t>(n), m_children.size() - 1)].get();
+}
+
 void UCTNode::kill_superkos(const GameState& state) {
     UCTNodePointer* pass_child = nullptr;
     size_t valid_count = 0;

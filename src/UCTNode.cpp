@@ -301,6 +301,8 @@ void UCTNode::accumulate_eval(const float eval) {
     atomic_add(m_blackevals, double(eval));
 }
 
+extern int g_root_color;
+
 UCTNode* UCTNode::uct_select_child(const int color, const bool is_root) {
     wait_expanded();
 
@@ -327,6 +329,10 @@ UCTNode* UCTNode::uct_select_child(const int color, const bool is_root) {
 
     auto best = static_cast<UCTNodePointer*>(nullptr);
     auto best_value = std::numeric_limits<double>::lowest();
+    auto second = static_cast<UCTNodePointer*>(nullptr);
+    auto second_value = std::numeric_limits<double>::lowest();
+    auto max_node = static_cast<UCTNodePointer*>(nullptr);
+    auto max_visits = 0;
 
     for (auto& child : m_children) {
         if (!child.active()) {
@@ -346,12 +352,27 @@ UCTNode* UCTNode::uct_select_child(const int color, const bool is_root) {
         const auto denom = 1.0 + child.get_visits();
         const auto puct = cfg_puct * psa * (numerator / denom);
         const auto value = winrate + puct;
+        const auto visits = child.get_visits();
         assert(value > std::numeric_limits<double>::lowest());
 
         if (value > best_value) {
+            second_value = best_value;
+            second = best;
             best_value = value;
             best = &child;
+        } else if (value > second_value) {
+            second_value = value;
+            second = &child;
         }
+        if (max_visits < visits) {
+            max_visits = visits;
+            max_node = &child;
+        }
+    }
+
+    if (color == g_root_color && rand() % 100 < 25 && second != nullptr) {
+        second->inflate();
+        return second->get();
     }
 
     assert(best != nullptr);

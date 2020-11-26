@@ -488,6 +488,23 @@ int UCTSearch::get_best_move(const passflag_t passflag) {
     }
 
     auto first_child = m_root->get_first_child();
+    static int best_count = 0;
+    static int next_count = 0;
+    auto next_child = m_root->get_nth_child(1);
+    if (first_child != next_child) {
+        const auto next_eval = next_child->get_raw_eval(color);
+        if (next_eval > 0.5 && next_eval > first_child->get_raw_eval(color) - 0.1) {
+            first_child = next_child;
+            myprintf("Play second best move :-)\n");
+            next_count++;
+        } else {
+            myprintf("Play best move :-(\n");
+            best_count++;
+      }
+      myprintf("  fit: %f %d %d\n",
+          100.0 * best_count / (best_count + next_count),
+          best_count, next_count);
+    }
     assert(first_child != nullptr);
 
     auto bestmove = first_child->get_move();
@@ -766,9 +783,12 @@ void UCTSearch::increment_playouts() {
     m_playouts++;
 }
 
+int g_root_color;
+
 int UCTSearch::think(const int color, const passflag_t passflag) {
     // Start counting time for us
     m_rootstate.start_clock(color);
+    g_root_color = color;
 
     // set up timing info
     Time start;
